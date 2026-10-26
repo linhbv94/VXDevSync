@@ -22,3 +22,7 @@ Tests mới kiểm signature/tamper/wrong key/wrong repo/app, corruption/travers
 ## Checkpoint trước CI
 
 33 Python tests và 1 frontend security test PASS trong môi trường fixture cô lập. Local Mac ARM64 đóng gói, self-test frozen, codesign strict, giải nén tar thật và kiểm chữ ký bundle PASS. Native GUI mở đúng fixture workspace/library, inventory hiển thị sample, Settings/Updates không tràn; kiểm tra trước publish nhận 404 và nút retry hoạt động. Chưa test GUI Windows/Intel, chưa test update 1.0.0→bản tiếp theo. Một lỗi retry push library khi không có thay đổi mới cũng đã có regression test và sửa. CI sẽ build/test package thật cho cả ba target trước publish.
+
+## Phục hồi CI Windows
+
+Run40364109041: fixture clone bare remote mặc định HEAD khác main trên Windows; sửa fixture chỉ rõ clone -b main, cleanup Git readonly files và báo lỗi đầy đủ. Workflow dispatch từ main dùng đúng fixture của workflow SHA, chỉ overlay tests/setup_mock_env.py. Source runtime/frontend/spec/installer/package inputs vẫn nguyên tag27b7c76; không dời tag hoặc sửa binary đã public.

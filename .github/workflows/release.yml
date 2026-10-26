@@ -59,6 +59,17 @@ jobs:
           node-version: '24'
           package-manager-cache: false
       - run: python -m pip install -r requirements_release.txt
+      # Only QA fixture tooling may be repaired after an immutable release tag.
+      # Application sources and package inputs remain from the tag checkout.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .ci_tooling
+          persist-credentials: false
+          sparse-checkout: |
+            tests/setup_mock_env.py
+          sparse-checkout-cone-mode: false
+      - run: python -c "from pathlib import Path; import shutil; shutil.copy2('.ci_tooling/tests/setup_mock_env.py', 'tests/setup_mock_env.py')"
       - run: python -m scripts.run_tests
       - run: node --test scripts/test_frontend_security.mjs
       - if: runner.os == 'Windows'

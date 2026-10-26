@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import shlex
+import stat
 from pathlib import Path
 
 MOCK_ROOT = Path("/tmp/vxdevsync_mock_env")
@@ -18,12 +19,18 @@ def run(cmd, cwd):
     for command in cmd.replace(chr(92), "/").split("&&"):
         result = subprocess.run(shlex.split(command), cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode:
-            raise RuntimeError(result.stderr)
+            raise RuntimeError(f"{command}: {result.stdout}\n{result.stderr}")
     return result
+
+def remove_fixture_tree(path):
+    def retry(function, filename, exc):
+        os.chmod(filename, stat.S_IWRITE | stat.S_IREAD)
+        function(filename)
+    shutil.rmtree(path, onerror=retry)
 
 def setup_mock_environment():
     if MOCK_ROOT.exists():
-        shutil.rmtree(MOCK_ROOT)
+        remove_fixture_tree(MOCK_ROOT)
     MOCK_ROOT.mkdir(parents=True, exist_ok=True)
     
     workspace_dir = MOCK_ROOT / "mock_workspace"
@@ -101,11 +108,11 @@ def setup_mock_environment():
     run("git push -u origin main", cwd=r4)
     # Clone tạm một nơi khác để push vào remote
     tmp_clone = MOCK_ROOT / "tmp_clone_r4"
-    run(f"git clone {r4_remote} {tmp_clone}", cwd=MOCK_ROOT)
+    run(f"git clone -b main {r4_remote} {tmp_clone}", cwd=MOCK_ROOT)
     run("git config user.name 'Dev Remote' && git config user.email 'remote@mock.local'", cwd=tmp_clone)
     (tmp_clone / "file.txt").write_text("Commit 1 + Remote Commit 2")
     run("git commit -am 'remote commit 2' && git push origin main", cwd=tmp_clone)
-    shutil.rmtree(tmp_clone)
+    remove_fixture_tree(tmp_clone)
     # Fetch tại r4 để git biết nó đang behind
     run("git fetch origin main", cwd=r4)
 
@@ -122,11 +129,11 @@ def setup_mock_environment():
     run("git push -u origin main", cwd=r5)
     # Remote push 1 nhánh
     tmp_clone5 = MOCK_ROOT / "tmp_clone_r5"
-    run(f"git clone {r5_remote} {tmp_clone5}", cwd=MOCK_ROOT)
+    run(f"git clone -b main {r5_remote} {tmp_clone5}", cwd=MOCK_ROOT)
     run("git config user.name 'Dev Remote' && git config user.email 'remote@mock.local'", cwd=tmp_clone5)
     (tmp_clone5 / "remote_change.txt").write_text("Remote branch change")
     run("git add -A && git commit -m 'remote diverged commit' && git push origin main", cwd=tmp_clone5)
-    shutil.rmtree(tmp_clone5)
+    remove_fixture_tree(tmp_clone5)
     # Local commit 1 thay đổi khác
     (r5 / "local_change.txt").write_text("Local branch change")
     run("git add -A && git commit -m 'local diverged commit'", cwd=r5)
