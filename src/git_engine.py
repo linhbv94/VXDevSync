@@ -263,42 +263,42 @@ class GitEngine:
         return list(results)
 
     def sync_single_repo(self, repo_path: Path, action: str = "smart_sync", timeout: int = 15) -> Dict[str, Any]:
-        """Thực thi pull/push cho một repo duy nhất."""
+        """Revalidate the worktree before every mutation; never merge diverged history."""
+        def result(success, message, selected=action):
+            return {"path": str(repo_path), "action": selected, "success": success, "message": message}
+        if action not in ("smart_sync", "pull", "push"):
+            return result(False, "Thao tác Git không hợp lệ")
         if not (repo_path / ".git").is_dir():
-            return {"path": str(repo_path), "success": False, "message": "Không phải Git repo"}
-
-        # Lấy trạng thái nhánh hiện tại
-        code, out, _ = self.run_cmd(["branch", "--show-current"], cwd=repo_path, timeout=timeout)
-        branch = out.strip() if code == 0 and out.strip() else "main"
-
-        # Kiểm tra Dirty
-        code, out, _ = self.run_cmd(["status", "--porcelain"], cwd=repo_path, timeout=timeout)
-        is_dirty = bool(code == 0 and out.strip())
-
-        # Tìm remote
-        code, out, _ = self.run_cmd(["remote"], cwd=repo_path, timeout=timeout)
-        remotes = [r.strip() for r in out.splitlines() if r.strip()] if code == 0 else []
-        remote = "origin" if "origin" in remotes else (remotes[0] if remotes else "")
-
+            return result(False, "Không phải Git repo")
+        code, branch, err = self.run_cmd(["branch", "--show-current"], repo_path, timeout)
+        if code or not branch:
+            return result(False, "Không xác định được nhánh; không đồng bộ detached HEAD")
+        code, dirty, err = self.run_cmd(["status", "--porcelain"], repo_path, timeout)
+        if code:
+            return result(False, "Không kiểm tra được trạng thái worktree: " + err)
+        if dirty:
+            return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)")
+        code, remotes, err = self.run_cmd(["remote"], repo_path, timeout)
+        names = remotes.splitlines() if not code else []
+        remote = "origin" if "origin" in names else (names[0] if names else "")
         if not remote:
-            return {"path": str(repo_path), "success": False, "message": "Chưa gắn remote origin"}
-
-        if action == "pull" or (action == "smart_sync" and not is_dirty):
-            # Thực thi Pull
-            code, out, err = self.run_cmd(["pull", "--ff-only", remote, branch], cwd=repo_path, timeout=timeout)
-            if code == 0:
-                return {"path": str(repo_path), "action": "pull", "success": True, "message": "Đã pull thành công"}
-            elif is_dirty:
-                return {"path": str(repo_path), "action": "pull", "success": False, "message": "Bỏ qua an toàn: Repo có file chưa commit (Dirty)"}
-            else:
-                return {"path": str(repo_path), "action": "pull", "success": False, "message": f"Lỗi pull: {err or out}"}
-
-        elif action == "push" or (action == "smart_sync" and not is_dirty):
-            # Thực thi Push
-            code, out, err = self.run_cmd(["push", remote, branch], cwd=repo_path, timeout=timeout)
-            if code == 0:
-                return {"path": str(repo_path), "action": "push", "success": True, "message": "Đã push thành công"}
-            else:
-                return {"path": str(repo_path), "action": "push", "success": False, "message": f"Lỗi push: {err or out}"}
-
-        return {"path": str(repo_path), "action": action, "success": False, "message": "Bỏ qua an toàn (Dirty hoặc Diverged)"}
+            return result(False, "Chưa gắn remote")
+        if action == "smart_sync":
+            code, _, err = self.run_cmd(["fetch", remote, branch], repo_path, timeout)
+            if code:
+                return result(False, "Không xác minh được remote: " + err)
+            code, counts, err = self.run_cmd(["rev-list", "--left-right", "--count", "HEAD...FETCH_HEAD"], repo_path, timeout)
+            if code:
+                return result(False, "Không xác định được ahead/behind: " + err)
+            try:
+                ahead, behind = map(int, counts.split())
+            except ValueError:
+                return result(False, "Trạng thái Git không hợp lệ")
+            if ahead and behind:
+                return result(False, "Cần merge thủ công (Diverged)")
+            if not ahead and not behind:
+                return result(True, "Đã đồng bộ", "none")
+            action = "push" if ahead else "pull"
+        args = ["pull", "--ff-only", remote, branch] if action == "pull" else ["push", remote, f"HEAD:refs/heads/{branch}"]
+        code, out, err = self.run_cmd(args, repo_path, timeout)
+        return result(code == 0, ("Đã " + action + " thành công") if code == 0 else ("Lỗi " + action + ": " + (err or out)), action)

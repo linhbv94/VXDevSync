@@ -28,5 +28,5 @@ class WindowChromeTests(unittest.TestCase):
         self.assertEqual(self.window.maximize.call_count, 2)
 
     def test_missing_window(self):
-        self.api.window_getter = lambda: None
+        self.api._window_getter = lambda: None
         self.assertFalse(self.api.window_action('close')['success'])

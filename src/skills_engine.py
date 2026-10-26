@@ -39,6 +39,24 @@ class SkillsEngine:
     """Xử lý đồng bộ Kỹ năng (skills/), Cascade Delete và Tombstone Manifest chống hồi sinh."""
 
     @staticmethod
+    def validate_skill_name(name: str) -> str:
+        if (not isinstance(name, str) or not name or name != name.strip()
+                or name in (".", "..", ".system", ".git")
+                or any(c in name for c in '/\\:\x00')
+                or Path(name).is_absolute()):
+            raise ValueError("Tên skill không hợp lệ hoặc nằm ngoài phạm vi cho phép")
+        return name
+
+    @classmethod
+    def skill_directory(cls, library_or_agent: Path, name: str) -> Path:
+        cls.validate_skill_name(name)
+        root = library_or_agent / "skills"
+        candidate = root / name
+        if root.is_symlink() or candidate.is_symlink() or candidate.resolve().parent != root.resolve():
+            raise ValueError("Không thao tác skill qua symlink hoặc ngoài thư mục skills")
+        return candidate
+
+    @staticmethod
     def is_ignored(rel_path: str, ignore_patterns: List[str]) -> bool:
         rel_str = rel_path.replace("\\", "/")
         parts = rel_str.split("/")
@@ -171,6 +189,8 @@ class SkillsEngine:
         except Exception:
             return []
 
+        for item in tombstones:
+            self.validate_skill_name(item.get("name") if isinstance(item, dict) else item)
         purged = []
         for item in tombstones:
             skill_name = item.get("name") if isinstance(item, dict) else str(item)
@@ -178,9 +198,9 @@ class SkillsEngine:
                 continue
 
             # Xóa khỏi Central Library nếu lỡ còn
-            lib_skill_dir = library_path / "skills" / skill_name
+            lib_skill_dir = self.skill_directory(library_path, skill_name)
             if lib_skill_dir.exists():
-                shutil.rmtree(lib_skill_dir, ignore_errors=True)
+                shutil.rmtree(lib_skill_dir)
                 purged.append(f"library:{skill_name}")
 
             # Xóa sạch khỏi toàn bộ các Agent
@@ -188,13 +208,16 @@ class SkillsEngine:
                 agent_dir_str = agent_paths.get(agent, "")
                 if not agent_dir_str:
                     continue
-                ag_skill_dir = Path(agent_dir_str) / "skills" / skill_name
+                ag_skill_dir = self.skill_directory(Path(agent_dir_str), skill_name)
                 if ag_skill_dir.exists():
-                    shutil.rmtree(ag_skill_dir, ignore_errors=True)
+                    shutil.rmtree(ag_skill_dir)
                     purged.append(f"{agent}:{skill_name}")
+
+        return purged
 
     def remove_tombstone_from_git_repo(self, library_path: Path, skill_name: str) -> bool:
         """Gỡ bỏ một skill khỏi file .vxdevsync/tombstones.json khi người dùng phục hồi."""
+        self.validate_skill_name(skill_name)
         tombstone_file = library_path / ".vxdevsync" / "tombstones.json"
         if not tombstone_file.exists():
             return False
@@ -229,7 +252,7 @@ class SkillsEngine:
         Pha Upstream: Quét các agent active.
         CHỐT CHẶN TOMBSTONE: Nếu file/skill nằm trong danh sách đã xóa, tự động XÓA KHỎI AGENT thay vì copy về library!
         """
-        tombstone_names = {item.get("name") for item in deleted_skills if item.get("name")}
+        tombstone_names = {self.validate_skill_name(item.get("name")) for item in deleted_skills if item.get("name")}
         library_skills_dir = library_path / "skills"
         library_skills_dir.mkdir(parents=True, exist_ok=True)
 
@@ -248,7 +271,7 @@ class SkillsEngine:
             # Kiểm tra và dọn dẹp các thư mục skill nằm trong tombstone
             for skill_dir in agent_skills_dir.iterdir():
                 if skill_dir.is_dir() and skill_dir.name in tombstone_names:
-                    shutil.rmtree(skill_dir, ignore_errors=True)
+                    shutil.rmtree(skill_dir)
 
             for root, dirs, files in os.walk(agent_skills_dir):
                 if ".system" in dirs:
@@ -355,6 +378,12 @@ class SkillsEngine:
         Xóa vật lý triệt để danh sách skills tại Central Library và toàn bộ Agent.
         Tự động cập nhật file .vxdevsync/tombstones.json trong Central Git repo.
         """
+        # Validate the entire request before the first mutation.
+        for name in skill_names:
+            self.skill_directory(library_path, name)
+            for agent in all_agents:
+                if agent_paths.get(agent):
+                    self.skill_directory(Path(agent_paths[agent]), name)
         deleted_locations = []
 
         # 1. Cập nhật .vxdevsync/tombstones.json trong library repo
@@ -375,35 +404,24 @@ class SkillsEngine:
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         for name in skill_names:
-            # Xóa tại Central Library
-            lib_skill_dir = library_path / "skills" / name
-            if lib_skill_dir.exists():
-                shutil.rmtree(lib_skill_dir, ignore_errors=True)
-                deleted_locations.append(f"Central Library: skills/{name}")
-
-            # Xóa tại tất cả các Agent
-            for agent in all_agents:
-                agent_dir_str = agent_paths.get(agent, "")
-                if not agent_dir_str:
-                    continue
-                ag_skill_dir = Path(agent_dir_str) / "skills" / name
-                if ag_skill_dir.exists():
-                    shutil.rmtree(ag_skill_dir, ignore_errors=True)
-                    deleted_locations.append(f"{agent}: skills/{name}")
-
-            # Ghi vào tombstones
             existing_tombstones = [item for item in existing_tombstones if (item.get("name") if isinstance(item, dict) else str(item)) != name]
-            existing_tombstones.append({
-                "name": name,
-                "deleted_at": now_iso,
-                "deleted_by": "vxdevsync"
-            })
-
+            existing_tombstones.append({"name":name,"deleted_at":now_iso,"deleted_by":"vxdevsync"})
+        import tempfile
+        fd, temporary = tempfile.mkstemp(prefix="tombstones_",dir=tombstone_dir)
         try:
-            with open(tombstone_file, "w", encoding="utf-8") as f:
-                json.dump({"schema_version": "1.0.0", "updated_at": now_iso, "tombstones": existing_tombstones}, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"[SkillsEngine] Lỗi lưu tombstones.json trong Git repo: {e}")
+            with os.fdopen(fd,"w",encoding="utf-8") as stream:
+                json.dump({"schema_version":"1.0.0","updated_at":now_iso,"tombstones":existing_tombstones},stream,indent=2,ensure_ascii=False)
+                stream.flush();os.fsync(stream.fileno())
+            os.replace(temporary,tombstone_file)
+        finally:
+            if os.path.exists(temporary):os.unlink(temporary)
+        for name in skill_names:
+            targets = [("Central Library",self.skill_directory(library_path,name))]
+            targets += [(agent,self.skill_directory(Path(agent_paths[agent]),name)) for agent in all_agents if agent_paths.get(agent)]
+            for label,target in targets:
+                if target.exists():
+                    shutil.rmtree(target)
+                    deleted_locations.append(f"{label}: skills/{name}")
 
         return {
             "success": True,

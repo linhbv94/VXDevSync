@@ -202,3 +202,7 @@ And Bảng Skills Inventory trên Máy B cập nhật trạng thái đã xóa, k
 - [ ] **Bảng màu:** Chuẩn Master Theme Dark `#0f1117`, Amber/Cyan accent `#f59e0b` / `#06b6d4`.
 - [ ] **Biểu tượng Vector:** 100% sử dụng Lucide vector SVG, không sử dụng emoji hệ thống.
 - [ ] **Định dạng văn bản:** Tuyệt đối không chứa công thức LaTeX; dùng Unicode `→`, `←`, `≥`, `≤`, `×`.
+
+## Gate phát hành1.0.0 — QA độc lập2026-10-26
+
+[QA và sửa lỗi thực tế](../release_1_0_0_review.md) ưu tiên hơn các tuyên bố hoàn tất trước đây. Inventory chỉ đọc; Sync không gom file ngoài phạm vi, dirty/staged/diverged phải safe-skip, tên skill không được thoát root/protected folders. Cấu hình lỗi giữ nguyên và có previous backup. Updater Python dùng signed manifest Ed25519/digest, Updates tab/startup check, mutation guard và staging/rollback; không dùng schema Tauri. Windows và haiMac có cùng engine, installer/updater khác nhau. [Vận hành](../desktop_release.md).

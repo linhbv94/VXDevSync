@@ -11,6 +11,25 @@ else:
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
+if len(sys.argv) == 3 and sys.argv[1] == '--apply-update':
+    from src.updater import apply_mac_update
+    apply_mac_update(sys.argv[2])
+    raise SystemExit(0)
+
+if '--self-test' in sys.argv:
+    import json
+    import webview
+    from src.updater import AppUpdater
+    from src.version import VERSION, APP_ID
+    AppUpdater()
+    if sys.platform == 'darwin':
+        import webview.platforms.cocoa
+    elif sys.platform == 'win32':
+        import webview.platforms.edgechromium
+        import webview.platforms.winforms
+    print(json.dumps({'version': VERSION, 'app_id': APP_ID, 'frozen': bool(getattr(sys, 'frozen', False)), 'self_test': 'ok'}))
+    raise SystemExit(0)
+
 import webview
 from src.config_manager import ConfigManager
 from src.bridge_api import BridgeApi
@@ -32,7 +51,7 @@ def main():
         print(f"[Error] Không tìm thấy frontend: {frontend_path}")
         sys.exit(1)
 
-    url = f"file://{frontend_path.resolve()}"
+    url = frontend_path.resolve().as_uri()
     
     # Thiết lập kích thước theo chuẩn zTools UI
     window = webview.create_window(
