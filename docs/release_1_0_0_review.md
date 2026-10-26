@@ -26,3 +26,11 @@ Tests mới kiểm signature/tamper/wrong key/wrong repo/app, corruption/travers
 ## Phục hồi CI Windows
 
 Run40364109041: fixture clone bare remote mặc định HEAD khác main trên Windows; sửa fixture chỉ rõ clone -b main, cleanup Git readonly files và báo lỗi đầy đủ. Workflow dispatch từ main dùng đúng fixture của workflow SHA, chỉ overlay tests/setup_mock_env.py. Source runtime/frontend/spec/installer/package inputs vẫn nguyên tag27b7c76; không dời tag hoặc sửa binary đã public.
+
+## Kết quả public — 2026-10-27
+
+[Release1.0.0](https://github.com/linhbv94/VXDevSync/releases/tag/v1.0.0) stable/latest,6assets. Build40364782599: toàn bộ3target tests/native package self-test/build/finalize PASS. Publish40366582260 PASS. Kiểm độc lập không đăng nhập: latest manifest exact với draft đã verify, Ed25519/signature/digests hợp lệ,6assets HTTP200. AppUpdater1.0.0 kiểm endpoint public trả success/current-version/no-update.
+
+Cả2tar Mac được extract bằng safe extractor thực, InfoPlistID/version/public key đúng, ARM64/x86_64 đúng, strict codesign PASS;2DMG checksum VALID. NSIS giải nén PE x64, public key đúng, frontend khớp sau chuẩn hóa line endings Windows. [Evidence](release_1_0_0_evidence.json).
+
+GUI native đã kiểm trên Mac ARM64 với config/workspace/agents fixture riêng, không thay dữ liệu thật. Windows/Intel GUI và installer install/relaunch chưa test trực tiếp; old→new updater E2E chờ bản kế tiếp. Không gọi những phần này là PASS chỉ nhờ CI. Lượt Codex QA/release này đã đóng.

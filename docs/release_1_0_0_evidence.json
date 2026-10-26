@@ -1,0 +1,104 @@
+{
+  "version": "1.0.0",
+  "state": "public_verified",
+  "source_commit": "27b7c76e1aff5e3e91309701705732bdc4d093dd",
+  "workflow_tooling_commit": "eb69261",
+  "build_run_id": 40364782599,
+  "previous_run_id": 40364109041,
+  "local_checks": {
+    "python_fixture_tests": 33,
+    "node_security_tests": 1,
+    "mac_arm64_package_self_test": true,
+    "mac_archive_safe_extract_codesign": true,
+    "mac_native_gui_fixture": true,
+    "mac_native_gui_updates_prepublication": "404 with retry",
+    "windows_native_gui": false,
+    "intel_native_gui": false,
+    "old_to_new_updater_e2e": false
+  },
+  "windows_package": {
+    "name": "vxdevsync_1.0.0_windows_x64_setup.exe",
+    "size": 16629469,
+    "sha256": "d4b72b57e612a2dc7d2225becc8b5552479aa37049f264ddae27292189f0f47f",
+    "pe_machine": "AMD64",
+    "packaged_public_key_matches": true,
+    "frontend_matches_normalized_line_endings": true
+  },
+  "ci_repair": "Only tests/setup_mock_env.py overlay from workflow SHA; tag runtime/frontend/installer inputs unchanged",
+  "private_key_in_repository": false,
+  "ci_all_targets": "success",
+  "manifest_signature": "verified Ed25519",
+  "mac_package_checks": [
+    "arm64/x86_64",
+    "bundle identity/version",
+    "strict codesign",
+    "public updater key"
+  ],
+  "assets": [
+    {
+      "name": "latest.json",
+      "size": 1008,
+      "sha256": "e7bc2d9419adb0bc335ee4697c2a68b688450168c18b228295d4d189293b08d2"
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_intel.app.tar.gz",
+      "size": 15944028,
+      "sha256": "d72406d7998865788b06c920e61be05a1bcf1bfd97b4feb06fd5341f58d14a35"
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_intel.dmg",
+      "size": 17280239,
+      "sha256": "fd5b382492daa2ecbcc7dd0ec493fe7a78a19ed0edbf21ba0b80fdaeac166f5d"
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_silicon.app.tar.gz",
+      "size": 15078411,
+      "sha256": "29c47cdc76c0157b3177ed79179b21e3fd800a4b2f2183ac0b7762f8982bc1e3"
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_silicon.dmg",
+      "size": 16509578,
+      "sha256": "26947c00208fdbf14c535e8701d72665a5ba681a21cfb45c40ba0fb437883504"
+    },
+    {
+      "name": "vxdevsync_1.0.0_windows_x64_setup.exe",
+      "size": 16629469,
+      "sha256": "d4b72b57e612a2dc7d2225becc8b5552479aa37049f264ddae27292189f0f47f"
+    }
+  ],
+  "publish_run_id": 40366582260,
+  "release_id": 424525745,
+  "public_assets": [
+    {
+      "name": "latest.json",
+      "status": 200
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_intel.app.tar.gz",
+      "status": 200
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_intel.dmg",
+      "status": 200
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_silicon.app.tar.gz",
+      "status": 200
+    },
+    {
+      "name": "vxdevsync_1.0.0_macos_silicon.dmg",
+      "status": 200
+    },
+    {
+      "name": "vxdevsync_1.0.0_windows_x64_setup.exe",
+      "status": 200
+    }
+  ],
+  "current_version_updater_check": {
+    "success": true,
+    "current_version": "1.0.0",
+    "available": false,
+    "version": "1.0.0"
+  },
+  "dmg_integrity": "both VALID"
+}
