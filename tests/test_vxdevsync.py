@@ -110,17 +110,17 @@ class TestVXDevSync(unittest.TestCase):
         repo_dir.mkdir(parents=True, exist_ok=True)
         
         # Init git repo
-        self.api.git_engine.run_cmd(["init"], cwd=repo_dir)
-        self.api.git_engine.run_cmd(["config", "user.name", "Test User"], cwd=repo_dir)
-        self.api.git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=repo_dir)
+        self.api._git_engine.run_cmd(["init"], cwd=repo_dir)
+        self.api._git_engine.run_cmd(["config", "user.name", "Test User"], cwd=repo_dir)
+        self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=repo_dir)
         
         # Tạo file và commit
         (repo_dir / "README.md").write_text("# Test Repo", encoding="utf-8")
-        self.api.git_engine.run_cmd(["add", "-A"], cwd=repo_dir)
-        self.api.git_engine.run_cmd(["commit", "-m", "initial commit"], cwd=repo_dir)
+        self.api._git_engine.run_cmd(["add", "-A"], cwd=repo_dir)
+        self.api._git_engine.run_cmd(["commit", "-m", "initial commit"], cwd=repo_dir)
         
         # Quét repo
-        status = self.api.git_engine.get_repo_status(repo_dir, self.test_path)
+        status = self.api._git_engine.get_repo_status(repo_dir, self.test_path)
         self.assertEqual(status.name, "mock_repo")
         self.assertTrue(status.is_clean)
         self.assertFalse(status.is_dirty)
@@ -128,7 +128,7 @@ class TestVXDevSync(unittest.TestCase):
         
         # Tạo dirty state
         (repo_dir / "new_file.txt").write_text("Hello dirty", encoding="utf-8")
-        dirty_status = self.api.git_engine.get_repo_status(repo_dir, self.test_path)
+        dirty_status = self.api._git_engine.get_repo_status(repo_dir, self.test_path)
         self.assertFalse(dirty_status.is_clean)
         self.assertTrue(dirty_status.is_dirty)
         self.assertEqual(dirty_status.dirty_files_count, 1)
@@ -140,8 +140,8 @@ class TestVXDevSync(unittest.TestCase):
         repo1.mkdir(parents=True, exist_ok=True)
         repo2.mkdir(parents=True, exist_ok=True)
 
-        self.api.git_engine.run_cmd(["init"], cwd=repo1)
-        self.api.git_engine.run_cmd(["init"], cwd=repo2)
+        self.api._git_engine.run_cmd(["init"], cwd=repo1)
+        self.api._git_engine.run_cmd(["init"], cwd=repo2)
 
         # Thêm repo2 vào ignore_list của config
         self.config_mgr.config.git_sync.ignore_list.append("repo_ignored")

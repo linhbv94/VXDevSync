@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 from pathlib import Path
+import sys
 
 block_cipher = None
 project_root = Path.cwd()
@@ -8,24 +9,14 @@ datas = [
     (str(project_root / "frontend"), "frontend"),
     (str(project_root / "public"), "public"),
     (str(project_root / "icon.png"), "."),
-    (str(project_root / "icon.icns"), "."),
+    (str(project_root / "src" / "release_config.json"), "src"),
 ]
 
-hiddenimports = [
-    "webview",
-    "webview.platforms.cocoa",
-    "objc",
-    "AppKit",
-    "WebKit",
-    "Foundation",
-    "src",
-    "src.bridge_api",
-    "src.config_manager",
-    "src.git_engine",
-    "src.skills_engine",
-    "src.adapter_engine",
-    "src.window_chrome",
-]
+hiddenimports = ["webview", "src", "src.bridge_api", "src.config_manager", "src.git_engine", "src.skills_engine", "src.adapter_engine", "src.window_chrome", "src.updater", "cryptography.hazmat.primitives.asymmetric.ed25519"]
+if sys.platform == "darwin":
+    hiddenimports += ["webview.platforms.cocoa", "objc", "AppKit", "WebKit", "Foundation"]
+else:
+    hiddenimports += ["webview.platforms.winforms", "webview.platforms.edgechromium", "clr", "pythonnet"]
 
 a = Analysis(
     ["src/main.py"],
@@ -61,7 +52,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(project_root / "icon.icns"),
+    icon=str(project_root / ("icon.icns" if sys.platform == "darwin" else "icon.ico")),
 )
 
 coll = COLLECT(
@@ -75,20 +66,21 @@ coll = COLLECT(
     name="VXDevSync",
 )
 
-app = BUNDLE(
-    coll,
-    name="VXDevSync.app",
-    icon=str(project_root / "icon.icns"),
-    bundle_identifier="com.ztools.vxdevsync",
-    info_plist={
-        "CFBundleName": "VXDevSync",
-        "CFBundleDisplayName": "VXDevSync",
-        "CFBundleIdentifier": "com.ztools.vxdevsync",
-        "CFBundleVersion": "1.0.0",
-        "CFBundleShortVersionString": "1.0.0",
-        "NSHighResolutionCapable": True,
-        "LSMinimumSystemVersion": "11.0",
-        "NSRequiresAquaSystemAppearance": False,
-        "CFBundlePackageType": "APPL",
-    },
-)
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="VXDevSync.app",
+        icon=str(project_root / "icon.icns"),
+        bundle_identifier="com.ztools.vxdevsync",
+        info_plist={
+            "CFBundleName": "VXDevSync",
+            "CFBundleDisplayName": "VXDevSync",
+            "CFBundleIdentifier": "com.ztools.vxdevsync",
+            "CFBundleVersion": "1.0.0",
+            "CFBundleShortVersionString": "1.0.0",
+            "NSHighResolutionCapable": True,
+            "LSMinimumSystemVersion": "11.0",
+            "NSRequiresAquaSystemAppearance": False,
+            "CFBundlePackageType": "APPL",
+        },
+    )

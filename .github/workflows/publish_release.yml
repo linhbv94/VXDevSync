@@ -1,0 +1,38 @@
+name: Publish tested release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+      local_qa_passed:
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: vxdevsync_release_${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event.repository.private == false && inputs.local_qa_passed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install cryptography==46.0.3
+      - run: python -m scripts.release publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          LOCAL_QA_PASSED: ${{ inputs.local_qa_passed }}

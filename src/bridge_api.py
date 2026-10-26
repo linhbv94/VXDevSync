@@ -2,6 +2,8 @@ import asyncio
 import os
 import sys
 import time
+import threading
+from functools import wraps
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -10,16 +12,31 @@ from src.git_engine import GitEngine, RepoStatus
 from src.skills_engine import SkillsEngine
 from src.adapter_engine import AdapterEngine
 
+def exclusive_mutation(function):
+    @wraps(function)
+    def call(self, *args, **kwargs):
+        if not self._mutation_lock.acquire(blocking=False):
+            return {"success": False, "error": "Đang có thao tác khác; hãy chờ hoàn tất"}
+        try:
+            return function(self, *args, **kwargs)
+        except (ValueError, OSError) as error:
+            return {"success": False, "error": str(error)}
+        finally:
+            self._mutation_lock.release()
+    return call
+
 class BridgeApi:
     """Cung cấp các API callable từ JavaScript qua pywebview window.pywebview.api."""
 
     def __init__(self, config_manager: ConfigManager, window_getter=None):
-        self.config_manager = config_manager
-        self.window_getter = window_getter
+        self._mutation_lock = threading.Lock()
+        self._updater = None
+        self._config_manager = config_manager
+        self._window_getter = window_getter
         self._window_maximized = False
-        self.git_engine = GitEngine()
-        self.skills_engine = SkillsEngine()
-        self.adapter_engine = AdapterEngine()
+        self._git_engine = GitEngine()
+        self._skills_engine = SkillsEngine()
+        self._adapter_engine = AdapterEngine()
 
     def _set_window_maximized(self, value):
         self._window_maximized = bool(value)
@@ -28,7 +45,7 @@ class BridgeApi:
         """Limited chrome controls. Never dispatch arbitrary bridge/native methods."""
         if action not in ("minimize", "toggle_maximize", "close"):
             return {"success": False, "error": "Thao tác cửa sổ không hợp lệ"}
-        window = self.window_getter() if self.window_getter else None
+        window = self._window_getter() if self._window_getter else None
         if window is None:
             return {"success": False, "error": "Không có cửa sổ đang hoạt động"}
         if action == "minimize":
@@ -43,8 +60,8 @@ class BridgeApi:
 
     def get_initial_state(self) -> Dict[str, Any]:
         """Lấy toàn bộ cấu hình và trạng thái hệ thống khi khởi động ứng dụng."""
-        cfg = self.config_manager.config
-        default_paths = self.config_manager.get_default_agent_paths()
+        cfg = self._config_manager.config
+        default_paths = self._config_manager.get_default_agent_paths()
 
         # Dò tìm xem các agent có thực sự tồn tại trên máy không
         detected_agents = {
@@ -62,7 +79,8 @@ class BridgeApi:
 
         return {
             "platform": "macos" if sys.platform == "darwin" else "windows" if sys.platform == "win32" else "other",
-            "is_first_run": self.config_manager.is_first_run,
+            "is_first_run": self._config_manager.is_first_run,
+            "config_error": self._config_manager.load_error,
             "version": cfg.version,
             "general": {
                 "lang": cfg.general.lang,
@@ -90,14 +108,15 @@ class BridgeApi:
             }
         }
 
+    @exclusive_mutation
     def save_config(self, new_data: Dict[str, Any]) -> Dict[str, Any]:
         """Cập nhật và lưu file cấu hình config.json."""
-        success = self.config_manager.update_from_dict(new_data)
+        success = self._config_manager.update_from_dict(new_data)
         return {"success": success, "error": "" if success else "Không thể lưu config"}
 
     def pick_folder(self, initial_dir: Optional[str] = None) -> Dict[str, Any]:
         """Mở hộp thoại chọn thư mục gốc của hệ điều hành."""
-        window = self.window_getter() if self.window_getter else None
+        window = self._window_getter() if self._window_getter else None
         if window:
             import webview
             result = window.create_file_dialog(
@@ -111,7 +130,7 @@ class BridgeApi:
 
     def scan_git_workspace(self, scan_path: Optional[str] = None, max_depth: Optional[int] = None) -> Dict[str, Any]:
         """Quét và phân tích trạng thái toàn bộ repositories trong workspace."""
-        cfg = self.config_manager.config
+        cfg = self._config_manager.config
         target_path = Path(scan_path) if scan_path else Path(cfg.git_sync.scan_path)
         depth = max_depth if max_depth is not None else cfg.git_sync.max_depth
         ignore_list = cfg.git_sync.ignore_list
@@ -126,11 +145,11 @@ class BridgeApi:
 
         start_time = time.time()
         # Lưu vào recent paths nếu hợp lệ
-        self.config_manager.add_recent_path(str(target_path))
+        self._config_manager.add_recent_path(str(target_path))
 
         # Chạy bất đồng bộ
         repos = asyncio.run(
-            self.git_engine.scan_and_check_all_async(
+            self._git_engine.scan_and_check_all_async(
                 root_path=target_path,
                 ignore_list=ignore_list,
                 max_depth=depth,
@@ -148,6 +167,7 @@ class BridgeApi:
             "total_count": len(repos)
         }
 
+    @exclusive_mutation
     def sync_git_repos(self, repo_paths: List[str], action: str = "smart_sync") -> Dict[str, Any]:
         """Đồng bộ một danh sách repositories được tick chọn (hoặc tất cả)."""
         results = []
@@ -155,7 +175,7 @@ class BridgeApi:
 
         for p_str in repo_paths:
             p = Path(p_str)
-            res = self.git_engine.sync_single_repo(p, action=action)
+            res = self._git_engine.sync_single_repo(p, action=action)
             if res.get("success"):
                 success_count += 1
             results.append(res)
@@ -170,19 +190,19 @@ class BridgeApi:
     def toggle_git_ignore(self, repo_name_or_rel: str, add: bool = True) -> Dict[str, Any]:
         """Thêm hoặc gỡ bỏ một repo khỏi danh sách loại trừ (ignore_list)."""
         if add:
-            ok = self.config_manager.add_to_git_ignore(repo_name_or_rel)
+            ok = self._config_manager.add_to_git_ignore(repo_name_or_rel)
         else:
-            ok = self.config_manager.remove_from_git_ignore(repo_name_or_rel)
+            ok = self._config_manager.remove_from_git_ignore(repo_name_or_rel)
         return {
             "success": ok,
-            "ignore_list": self.config_manager.config.git_sync.ignore_list
+            "ignore_list": self._config_manager.config.git_sync.ignore_list
         }
 
     def get_skills_inventory(self) -> Dict[str, Any]:
         """Lấy danh sách ma trận Kỹ năng (Skills Inventory)."""
-        cfg = self.config_manager.config
+        cfg = self._config_manager.config
         lib_path = Path(cfg.skills_sync.skills_lib) if cfg.skills_sync.skills_lib else Path("")
-        defaults = self.config_manager.get_default_agent_paths()
+        defaults = self._config_manager.get_default_agent_paths()
         agent_paths = {}
         for ag in ["anti", "codex", "claude"]:
             custom = cfg.skills_sync.custom_agent_paths.get(ag)
@@ -192,10 +212,9 @@ class BridgeApi:
 
         # Kiểm tra nếu có repo Git ở Central Library thì dọn trước các skills trong tombstones từ GitHub
         purged = []
-        if lib_path.exists():
-            purged = self.skills_engine.sync_tombstones_from_git_repo(lib_path, agent_paths, ["anti", "codex", "claude"])
+        # Inventory is read-only. Apply remote tombstones only during explicit sync.
 
-        inventory = self.skills_engine.get_skills_inventory(
+        inventory = self._skills_engine.get_skills_inventory(
             library_path=lib_path,
             agent_paths=agent_paths,
             active_agents=active_agents,
@@ -211,33 +230,87 @@ class BridgeApi:
             "purged_tombstones": purged
         }
 
+    @exclusive_mutation
     def toggle_agent(self, agent_name: str, is_active: bool) -> Dict[str, Any]:
         """Bật hoặc tắt trạng thái kích hoạt của một AI Agent."""
-        ok = self.config_manager.toggle_agent(agent_name, is_active)
+        ok = self._config_manager.toggle_agent(agent_name, is_active)
         return {
             "success": ok,
-            "agents": self.config_manager.config.skills_sync.agents
+            "agents": self._config_manager.config.skills_sync.agents
         }
 
+    @exclusive_mutation
     def set_skills_library_path(self, new_path: str) -> Dict[str, Any]:
         """Thay đổi thư mục Central Skills Library."""
         p = Path(new_path).expanduser().resolve()
         if not p.exists() or not p.is_dir():
             return {"success": False, "error": "Thư mục không tồn tại"}
 
-        self.config_manager.config.skills_sync.skills_lib = str(p)
+        self._config_manager.config.skills_sync.skills_lib = str(p)
         # Nếu thư mục có Git repo, tự phát hiện git_repo URL
-        code, url, _ = self.git_engine.run_cmd(["remote", "get-url", "origin"], cwd=p)
+        code, url, _ = self._git_engine.run_cmd(["remote", "get-url", "origin"], cwd=p)
         if code == 0 and url.strip():
-            self.config_manager.config.skills_sync.git_repo = url.strip()
+            self._config_manager.config.skills_sync.git_repo = url.strip()
 
-        self.config_manager.save_config()
+        self._config_manager.save_config()
         return {
             "success": True,
             "skills_lib": str(p),
-            "git_repo": self.config_manager.config.skills_sync.git_repo
+            "git_repo": self._config_manager.config.skills_sync.git_repo
         }
 
+    def _library_preflight(self, library):
+        if not (library / ".git").is_dir():
+            return
+        code, staged, err = self._git_engine.run_cmd(["diff", "--cached", "--name-only"], library)
+        if code or staged:
+            raise ValueError("Library có thay đổi đang staged; hãy hoàn tất commit riêng trước khi sync")
+        code, dirty, err = self._git_engine.run_cmd(["status", "--porcelain"], library)
+        if code:
+            raise ValueError("Không kiểm tra được library")
+        code, branch, err = self._git_engine.run_cmd(["branch", "--show-current"], library)
+        if code or not branch:
+            raise ValueError("Library cần nhánh Git hợp lệ")
+        code, _, err = self._git_engine.run_cmd(["fetch", "origin", branch], library)
+        if code:
+            raise ValueError("Không fetch được library; chưa thực hiện thay đổi: " + err)
+        code, counts, err = self._git_engine.run_cmd(["rev-list", "--left-right", "--count", "HEAD...FETCH_HEAD"], library)
+        if code:
+            raise ValueError("Không xác minh được lịch sử library")
+        ahead, behind = map(int, counts.split())
+        if behind and (ahead or dirty):
+            raise ValueError("Library có thay đổi local/remote cần xử lý thủ công trước sync")
+        if behind:
+            code, _, err = self._git_engine.run_cmd(["pull", "--ff-only", "origin", branch], library)
+            if code:
+                raise ValueError("Không pull an toàn được library: " + err)
+
+    def _commit_library_changes(self, library, message):
+        if not (library / ".git").is_dir():
+            return False, False, ""
+        # Stage only owned paths, leaving unrelated local files untouched.
+        paths = [p for p in ["skills", "AGENTS.md", ".vxdevsync/tombstones.json"]
+                 if (library / p).exists() or self._git_engine.run_cmd(["ls-files", "--", p], library)[1]]
+        if not paths:
+            return False, False, ""
+        code, _, err = self._git_engine.run_cmd(["add", "-A", "--", *paths], library)
+        if code:
+            return False, False, err
+        code, changes, err = self._git_engine.run_cmd(["diff", "--cached", "--name-only"], library)
+        if code:
+            return False, False, err
+        committed = bool(changes)
+        if committed:
+            code, _, err = self._git_engine.run_cmd(["commit", "-m", message], library)
+            if code:
+                return False, False, err
+        code, branch, err = self._git_engine.run_cmd(["branch", "--show-current"], library)
+        if code or not branch:
+            return True, False, "Đã commit local; không xác minh được nhánh để push"
+        code, _, err = self._git_engine.run_cmd(["push", "origin", f"HEAD:refs/heads/{branch}"], library, timeout=15)
+        return committed, code == 0, "Đã đồng bộ lên Git" if code == 0 else "Thay đổi còn ở local; push thất bại: " + err
+
+    @exclusive_mutation
     def sync_skills_unified(self) -> Dict[str, Any]:
         """
         Tiến trình Đồng bộ Hợp nhất (Unified Smart Sync):
@@ -247,13 +320,15 @@ class BridgeApi:
         4. Rules Adapter (AGENTS.md ↔ CLAUDE.md)
         5. Git Commit & Push lên GitHub nếu có repo
         """
-        cfg = self.config_manager.config
-        lib_path = Path(cfg.skills_sync.skills_lib) if cfg.skills_sync.skills_lib else Path("")
+        cfg = self._config_manager.config
+        if not cfg.skills_sync.skills_lib.strip():
+            return {"success": False, "error": "Chưa cấu hình Central Skills Library."}
+        lib_path = Path(cfg.skills_sync.skills_lib).expanduser().resolve()
 
         if not lib_path.exists() or not lib_path.is_dir():
             return {"success": False, "error": "Chưa cấu hình Central Skills Library hoặc đường dẫn không hợp lệ."}
 
-        defaults = self.config_manager.get_default_agent_paths()
+        defaults = self._config_manager.get_default_agent_paths()
         agent_paths = {}
         for ag in ["anti", "codex", "claude"]:
             custom = cfg.skills_sync.custom_agent_paths.get(ag)
@@ -262,21 +337,13 @@ class BridgeApi:
         selected_agents = [ag for ag, state in cfg.skills_sync.agents.items() if state == 1]
         all_agents = ["anti", "codex", "claude"]
 
-        # 0. Kéo bản mới nhất từ Git Remote về Central Library (nếu có Git repo) để nhận tombstones từ các máy khác
-        git_pulled = False
-        git_pull_msg = ""
-        if (lib_path / ".git").is_dir():
-            p_code, _, p_err = self.git_engine.run_cmd(["pull", "origin", "main"], cwd=lib_path, timeout=12)
-            if p_code != 0:
-                p_code, _, p_err = self.git_engine.run_cmd(["pull", "origin", "master"], cwd=lib_path, timeout=12)
-            git_pulled = (p_code == 0)
-            git_pull_msg = "Đã kéo cập nhật từ remote" if git_pulled else f"Không thể pull remote: {p_err}"
+        self._library_preflight(lib_path)
 
         # 1. Dọn dẹp Tombstone từ file .vxdevsync/tombstones.json kéo từ remote
-        purged = self.skills_engine.sync_tombstones_from_git_repo(lib_path, agent_paths, all_agents)
+        purged = self._skills_engine.sync_tombstones_from_git_repo(lib_path, agent_paths, all_agents)
 
         # 2. Upstream Skills
-        upstream_files = self.skills_engine.scan_and_sync_upstream(
+        upstream_files = self._skills_engine.scan_and_sync_upstream(
             library_path=lib_path,
             agent_paths=agent_paths,
             selected_agents=selected_agents,
@@ -285,7 +352,7 @@ class BridgeApi:
         )
 
         # 3. Downstream Skills
-        downstream_agents = self.skills_engine.deploy_skills_downstream(
+        downstream_agents = self._skills_engine.deploy_skills_downstream(
             library_path=lib_path,
             agent_paths=agent_paths,
             selected_agents=selected_agents,
@@ -293,34 +360,18 @@ class BridgeApi:
         )
 
         # 4. Rules Adapter (Upstream + Downstream)
-        rules_up_changed, rules_up_msg = self.adapter_engine.sync_rules_upstream(
+        rules_up_changed, rules_up_msg = self._adapter_engine.sync_rules_upstream(
             library_path=lib_path,
             agent_paths=agent_paths,
             selected_agents=selected_agents
         )
-        rules_deployed = self.adapter_engine.deploy_rules_downstream(
+        rules_deployed = self._adapter_engine.deploy_rules_downstream(
             library_path=lib_path,
             agent_paths=agent_paths,
             selected_agents=selected_agents
         )
 
-        # 5. Git Commit & Push cho Central Library nếu có Git
-        git_pushed = False
-        git_msg = ""
-        if (lib_path / ".git").is_dir():
-            # Check status
-            code, out, _ = self.git_engine.run_cmd(["status", "--porcelain"], cwd=lib_path)
-            if code == 0 and out.strip():
-                self.git_engine.run_cmd(["add", "-A"], cwd=lib_path)
-                c_code, _, c_err = self.git_engine.run_cmd(["commit", "-m", "chore(skills): auto-sync skills and rules"], cwd=lib_path)
-                if c_code == 0:
-                    # Push
-                    p_code, _, p_err = self.git_engine.run_cmd(["push", "origin", "main"], cwd=lib_path, timeout=15)
-                    if p_code != 0:
-                        # Thử branch master
-                        p_code, _, p_err = self.git_engine.run_cmd(["push", "origin", "master"], cwd=lib_path, timeout=15)
-                    git_pushed = (p_code == 0)
-                    git_msg = "Đã push lên GitHub" if git_pushed else f"Không thể push: {p_err}"
+        _, git_pushed, git_msg = self._commit_library_changes(lib_path, "chore(skills): sync skills and rules")
 
         return {
             "success": True,
@@ -334,6 +385,7 @@ class BridgeApi:
             "git_msg": git_msg
         }
 
+    @exclusive_mutation
     def delete_skills_cascade(self, skill_names: List[str]) -> Dict[str, Any]:
         """
         Xóa Kỹ năng Triệt để & Thực thi Git Commit + Push TỨC THỜI.
@@ -341,9 +393,11 @@ class BridgeApi:
         if not skill_names:
             return {"success": False, "error": "Chưa chọn kỹ năng để xóa"}
 
-        cfg = self.config_manager.config
-        lib_path = Path(cfg.skills_sync.skills_lib) if cfg.skills_sync.skills_lib else Path("")
-        defaults = self.config_manager.get_default_agent_paths()
+        cfg = self._config_manager.config
+        if not cfg.skills_sync.skills_lib.strip():
+            return {"success": False, "error": "Chưa cấu hình Central Skills Library."}
+        lib_path = Path(cfg.skills_sync.skills_lib).expanduser().resolve()
+        defaults = self._config_manager.get_default_agent_paths()
         agent_paths = {}
         for ag in ["anti", "codex", "claude"]:
             custom = cfg.skills_sync.custom_agent_paths.get(ag)
@@ -351,8 +405,10 @@ class BridgeApi:
 
         all_agents = ["anti", "codex", "claude"]
 
+        self._library_preflight(lib_path)
+
         # 1. Xóa vật lý & cập nhật tombstones.json trong library
-        res = self.skills_engine.execute_delete_cascade(
+        res = self._skills_engine.execute_delete_cascade(
             skill_names=skill_names,
             library_path=lib_path,
             agent_paths=agent_paths,
@@ -361,25 +417,9 @@ class BridgeApi:
 
         # 2. Ghi nhận vào deleted_skills trong config_manager
         for name in skill_names:
-            self.config_manager.add_deleted_skill_tombstone(name)
+            self._config_manager.add_deleted_skill_tombstone(name)
 
-        # 3. Thực thi Git Commit & Push tức thì
-        git_committed = False
-        git_pushed = False
-        git_msg = ""
-
-        if lib_path.exists() and (lib_path / ".git").is_dir():
-            self.git_engine.run_cmd(["add", "-A"], cwd=lib_path)
-            commit_msg = f"chore(skills): delete skill(s) {', '.join(skill_names)}"
-            c_code, _, c_err = self.git_engine.run_cmd(["commit", "-m", commit_msg], cwd=lib_path)
-            if c_code == 0:
-                git_committed = True
-                # Push ngay lên GitHub
-                p_code, _, p_err = self.git_engine.run_cmd(["push", "origin", "main"], cwd=lib_path, timeout=12)
-                if p_code != 0:
-                    p_code, _, p_err = self.git_engine.run_cmd(["push", "origin", "master"], cwd=lib_path, timeout=12)
-                git_pushed = (p_code == 0)
-                git_msg = "Đã commit và push lên GitHub" if git_pushed else "Đã commit local (sẽ tự push khi có mạng)"
+        git_committed, git_pushed, git_msg = self._commit_library_changes(lib_path, "chore(skills): delete selected skills")
 
         return {
             "success": True,
@@ -390,31 +430,40 @@ class BridgeApi:
             "git_msg": git_msg
         }
 
+    @exclusive_mutation
     def restore_skill(self, skill_name: str) -> Dict[str, Any]:
-        """Phục hồi một skill đã xóa khỏi danh sách Tombstone (cả config và git repo)."""
-        self.config_manager.remove_deleted_skill_tombstone(skill_name)
-        
-        cfg = self.config_manager.config
-        lib_path = Path(cfg.skills_sync.skills_lib) if cfg.skills_sync.skills_lib else Path("")
-        repo_removed = False
-        git_committed = False
-        
-        if lib_path.exists():
-            repo_removed = self.skills_engine.remove_tombstone_from_git_repo(lib_path, skill_name)
-            if (lib_path / ".git").is_dir():
-                self.git_engine.run_cmd(["add", ".vxdevsync/tombstones.json"], cwd=lib_path)
-                c_code, _, _ = self.git_engine.run_cmd(
-                    ["commit", "-m", f"chore(skills): restore skill {skill_name} from tombstones"],
-                    cwd=lib_path
-                )
-                if c_code == 0:
-                    git_committed = True
-                    self.git_engine.run_cmd(["push", "origin", "main"], cwd=lib_path, timeout=12)
-                    self.git_engine.run_cmd(["push", "origin", "master"], cwd=lib_path, timeout=12)
+        self._skills_engine.validate_skill_name(skill_name)
+        cfg = self._config_manager.config
+        if not cfg.skills_sync.skills_lib.strip():
+            return {"success": False, "error": "Chưa cấu hình Central Skills Library"}
+        library = Path(cfg.skills_sync.skills_lib).expanduser().resolve()
+        self._library_preflight(library)
+        removed = self._skills_engine.remove_tombstone_from_git_repo(library, skill_name)
+        self._config_manager.remove_deleted_skill_tombstone(skill_name)
+        committed, pushed, message = self._commit_library_changes(library, "chore(skills): restore tombstone")
+        return {"success": True, "restored_skill": skill_name, "repo_tombstone_removed": removed,
+                "git_committed": committed, "git_pushed": pushed, "git_msg": message}
 
-        return {
-            "success": True, 
-            "restored_skill": skill_name, 
-            "repo_tombstone_removed": repo_removed,
-            "git_committed": git_committed
-        }
+    def check_updates(self):
+        try:
+            from src.updater import AppUpdater
+            if self._updater is None:
+                self._updater = AppUpdater()
+            return self._updater.check()
+        except Exception as error:
+            return {"success": False, "error": "Chưa kiểm tra được cập nhật: " + str(error)}
+
+    @exclusive_mutation
+    def install_update(self):
+        try:
+            from src.updater import AppUpdater
+            if self._updater is None:
+                self._updater = AppUpdater()
+            window = self._window_getter() if self._window_getter else None
+            if window is None:
+                return {"success": False, "error": "Không có cửa sổ để khởi động lại"}
+            result = self._updater.install()
+            window.destroy()
+            return result
+        except Exception as error:
+            return {"success": False, "error": "Cập nhật thất bại: " + str(error)}

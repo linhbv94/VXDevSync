@@ -1,4 +1,5 @@
 import json
+from src.version import VERSION
 import os
 import sys
 from pathlib import Path
@@ -50,7 +51,7 @@ class SkillsSyncConfig:
 
 @dataclass
 class AppConfig:
-    version: str = "1.0.0"
+    version: str = VERSION
     general: GeneralConfig = field(default_factory=GeneralConfig)
     git_sync: GitSyncConfig = field(default_factory=GitSyncConfig)
     skills_sync: SkillsSyncConfig = field(default_factory=SkillsSyncConfig)
@@ -69,6 +70,7 @@ class ConfigManager:
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.config_dir / "config.json"
         self.config: AppConfig = AppConfig()
+        self.load_error = ""
         self.is_first_run: bool = not self.config_file.exists()
         self.load_config()
 
@@ -131,8 +133,9 @@ class ConfigManager:
                 self.config.skills_sync.ignore_patterns = skills_data.get("ignore_patterns", list(DEFAULT_IGNORE_PATTERNS))
                 self.config.skills_sync.deleted_skills = skills_data.get("deleted_skills", [])
             except Exception as e:
-                print(f"[ConfigManager] Lỗi đọc config ({e}), lưu cấu hình mặc định.")
-                self.save_config()
+                self.load_error = "Không đọc được cấu hình; file gốc được giữ nguyên."
+                self.config.general.auto_scan_on_startup = False
+                self.config.skills_sync.agents = {"anti":0,"codex":0,"claude":0}
         else:
             self.save_config()
 
@@ -147,8 +150,18 @@ class ConfigManager:
                 "git_sync": asdict(self.config.git_sync),
                 "skills_sync": asdict(self.config.skills_sync)
             }
-            with open(self.config_file, "w", encoding="utf-8") as f:
-                json.dump(payload, f, indent=2, ensure_ascii=False)
+            import tempfile
+            import shutil
+            fd, temporary = tempfile.mkstemp(prefix="config_",dir=self.config_dir)
+            try:
+                with os.fdopen(fd,"w",encoding="utf-8") as stream:
+                    json.dump(payload,stream,indent=2,ensure_ascii=False)
+                    stream.flush();os.fsync(stream.fileno())
+                if self.config_file.exists():
+                    shutil.copy2(self.config_file,self.config_dir/"config_previous.json")
+                os.replace(temporary,self.config_file)
+            finally:
+                if os.path.exists(temporary):os.unlink(temporary)
             return True
         except Exception as e:
             print(f"[ConfigManager] Lỗi lưu file config: {e}")

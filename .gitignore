@@ -42,3 +42,5 @@ dist/
 
 # Local logs
 *.log
+
+.release_keys/

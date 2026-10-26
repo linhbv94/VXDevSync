@@ -97,3 +97,7 @@ Hệ thống tài liệu đặc tả của VXDevSync được phân rã chuẩn 
 4. [03_ui_wireframe.md](03_ui_wireframe.md): Thiết kế giao diện chi tiết, wireframe ASCII/layout, tokens UI theo chuẩn zTools.
 5. [04_api_data.md](04_api_data.md): Cấu trúc dữ liệu `config.json` hợp nhất, schema nội bộ và hợp đồng Desktop Bridge API.
 6. [05_qa_acceptance.md](05_qa_acceptance.md): Bộ tiêu chuẩn nghiệm thu (Gherkin Scenarios), ma trận kiểm thử và danh mục checklist.
+
+## Gate phát hành1.0.0 — QA độc lập2026-10-26
+
+[QA và sửa lỗi thực tế](../release_1_0_0_review.md) ưu tiên hơn các tuyên bố hoàn tất trước đây. Inventory chỉ đọc; Sync không gom file ngoài phạm vi, dirty/staged/diverged phải safe-skip, tên skill không được thoát root/protected folders. Cấu hình lỗi giữ nguyên và có previous backup. Updater Python dùng signed manifest Ed25519/digest, Updates tab/startup check, mutation guard và staging/rollback; không dùng schema Tauri. Windows và haiMac có cùng engine, installer/updater khác nhau. [Vận hành](../desktop_release.md).

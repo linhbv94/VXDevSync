@@ -1,3 +1,7 @@
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+}
+
 // VXDevSync Frontend Application Logic
 
 const SVG_ICONS = {
@@ -49,9 +53,14 @@ async function initApp() {
     window.applyChromePlatform(initialState.platform);
     state.config = initialState;
     state.isFirstRun = initialState.is_first_run;
+    if (initialState.config_error) showToast(initialState.config_error, "danger");
 
     setupEventListeners();
     updateUIFromConfig();
+    // Startup checks never install or interrupt a sync automatically.
+    window.pywebview.api.check_updates().then(result => {
+      if (result.success && result.available) showToast(`Có bản ${result.version}. Mở Cài đặt → Cập nhật để cài.`, "info");
+    }).catch(() => {});
 
     if (state.isFirstRun) {
       openOnboardingModal();
@@ -460,18 +469,18 @@ function renderGitReposTable() {
         <input type="checkbox" class="repo-checkbox" ${isSelected ? "checked" : ""} ${isIgnored ? "disabled title='Repository đã bị loại trừ'" : ""}>
       </td>
       <td>
-        <strong style="color: ${isIgnored ? 'var(--text-muted)' : 'var(--text-primary)'};">${repo.name}</strong>
+        <strong style="color: ${isIgnored ? 'var(--text-muted)' : 'var(--text-primary)'};">${escapeHtml(repo.name)}</strong>
         ${isIgnored ? '<span class="badge badge-muted" style="font-size: 9px; margin-left: 4px; padding: 1px 4px;">Ignored</span>' : ''}
-        <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${repo.rel_path}</div>
+        <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(repo.rel_path)}</div>
       </td>
       <td>
-        <span class="badge badge-muted" style="font-family: var(--font-mono);">${repo.current_branch}</span>
+        <span class="badge badge-muted" style="font-family: var(--font-mono);">${escapeHtml(repo.current_branch)}</span>
       </td>
       <td>${fileBadge}</td>
       <td>${syncBadge}</td>
       <td><span class="offset-text" style="${isIgnored ? 'color: var(--text-muted);' : ''}">${offsetStr}</span></td>
       <td>
-        <span style="font-size: 11px; color: var(--text-secondary);">${suggestedActionStr}</span>
+        <span style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(suggestedActionStr)}</span>
       </td>
       <td style="text-align: right;">
         ${isIgnored
@@ -730,7 +739,7 @@ function renderSkillsTable() {
 
     tr.innerHTML = `
       <td>
-        <strong style="color: var(--text-primary); font-family: var(--font-mono);">${skill.name}</strong>
+        <strong style="color: var(--text-primary); font-family: var(--font-mono);">${escapeHtml(skill.name)}</strong>
       </td>
       <td>${libBadge}</td>
       <td>${getAgentBadge("anti")}</td>
@@ -854,21 +863,21 @@ function renderSettingsTabContent(tabKey) {
       <div class="form-group">
         <label class="form-label settings-section-title">Thư mục Workspace Quét Mặc định (scan_path):</label>
         <div class="form-input-row">
-          <input type="text" class="form-input" id="setting-scan-path" value="${cfg.git_sync.scan_path}">
+          <input type="text" class="form-input" id="setting-scan-path" value="${escapeHtml(cfg.git_sync.scan_path)}">
           <button class="btn-secondary" id="btn-browse-scan-path">Duyệt...</button>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label settings-section-title">Độ sâu quét tối đa (max_depth):</label>
-        <input type="number" class="form-input" id="setting-max-depth" value="${cfg.git_sync.max_depth}" min="1" max="10">
+        <input type="number" class="form-input" id="setting-max-depth" value="${escapeHtml(cfg.git_sync.max_depth)}" min="1" max="10">
       </div>
       <div class="form-group">
         <label class="form-label settings-section-title">Danh sách Thư mục Loại trừ (Ignore List):</label>
         <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 6px; max-height: 120px; overflow-y: auto;" id="setting-ignore-container">
           ${cfg.git_sync.ignore_list.map(item => `
             <div style="display: flex; justify-content: space-between; padding: 3px 6px; font-size: 11px;">
-              <span>${item}</span>
-              <button class="table-action-btn btn-danger-hover btn-remove-ignore" data-ignore="${item}" title="Xóa khỏi danh sách loại trừ">
+              <span>${escapeHtml(item)}</span>
+              <button class="table-action-btn btn-danger-hover btn-remove-ignore" data-ignore="${escapeHtml(item)}" title="Xóa khỏi danh sách loại trừ">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -945,13 +954,13 @@ function renderSettingsTabContent(tabKey) {
       <div class="form-group">
         <label class="form-label settings-section-title">Thư mục Central Skills Library (skills_lib):</label>
         <div class="form-input-row">
-          <input type="text" class="form-input" id="setting-skills-lib" value="${cfg.skills_sync.skills_lib}">
+          <input type="text" class="form-input" id="setting-skills-lib" value="${escapeHtml(cfg.skills_sync.skills_lib)}">
           <button class="btn-secondary" id="btn-browse-skills-lib">Duyệt...</button>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label settings-section-title">Git Remote URL (Tùy chọn, để trống nếu dùng Offline):</label>
-        <input type="text" class="form-input" id="setting-git-repo" value="${cfg.skills_sync.git_repo}" placeholder="https://github.com/username/my_skills_library.git">
+        <input type="text" class="form-input" id="setting-git-repo" value="${escapeHtml(cfg.skills_sync.git_repo)}" placeholder="https://github.com/username/my_skills_library.git">
       </div>
       <div class="form-group">
         <label class="form-label settings-section-title">Quản lý Kỹ năng đã Xóa (Tombstone Manifest):</label>
@@ -959,8 +968,8 @@ function renderSettingsTabContent(tabKey) {
           ${(cfg.skills_sync.deleted_skills || []).length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px;">Chưa có kỹ năng nào bị khai tử</div>' : ''}
           ${(cfg.skills_sync.deleted_skills || []).map(item => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-size: 11px;">
-              <span style="font-family: var(--font-mono); color: var(--color-danger);">${item.name}</span>
-              <button class="btn-secondary btn-restore-tombstone" data-skill="${item.name}" style="font-size: 10px; padding: 2px 6px;">Khôi phục</button>
+              <span style="font-family: var(--font-mono); color: var(--color-danger);">${escapeHtml(item.name)}</span>
+              <button class="btn-secondary btn-restore-tombstone" data-skill="${escapeHtml(item.name)}" style="font-size: 10px; padding: 2px 6px;">Khôi phục</button>
             </div>
           `).join("")}
         </div>
@@ -989,10 +998,39 @@ function renderSettingsTabContent(tabKey) {
       <h4 class="settings-section-title">Cập nhật ứng dụng</h4>
       <div class="settings-info-card">
         <strong>Phiên bản hiện tại: v<span id="settings-current-version"></span></strong>
-        <p>Chưa tích hợp kiểm tra và cài cập nhật tự động cho VXDevSync.</p>
-        <button class="btn-secondary" disabled>Chưa khả dụng</button>
+        <p id="update-status">Kiểm tra bản mới và cài cập nhật khi công việc đã hoàn tất.</p>
+        <button id="check-app-update" class="btn-secondary">Kiểm tra cập nhật</button>
+        <button id="install-app-update" class="btn-secondary" hidden>Cài và khởi động lại</button>
       </div>`;
     document.getElementById("settings-current-version").textContent = cfg.version;
+    const checkButton = document.getElementById("check-app-update");
+    const installButton = document.getElementById("install-app-update");
+    const status = document.getElementById("update-status");
+    checkButton.onclick = async () => {
+      checkButton.disabled = true;
+      installButton.hidden = true;
+      status.textContent = "Đang kiểm tra...";
+      try {
+        const result = await window.pywebview.api.check_updates();
+        status.textContent = result.success ? (result.available ? `Có phiên bản ${result.version}` : "Bạn đang dùng bản mới nhất") : result.error;
+        installButton.hidden = !(result.success && result.available);
+      } catch (error) { status.textContent = "Không kiểm tra được cập nhật; hãy thử lại."; }
+      finally { checkButton.disabled = false; }
+    };
+    installButton.onclick = async () => {
+      if (state.isSyncingGit || state.isSyncingSkills || state.isScanningGit) {
+        status.textContent = "Hãy đợi tác vụ đồng bộ hoàn tất trước khi cập nhật.";
+        return;
+      }
+      checkButton.disabled = true;
+      installButton.disabled = true;
+      status.textContent = "Đang tải, xác minh và cài cập nhật...";
+      try {
+        const result = await window.pywebview.api.install_update();
+        if (!result.success) status.textContent = result.error;
+      } catch (error) { status.textContent = "Cập nhật thất bại; bạn có thể thử lại."; }
+      finally { checkButton.disabled = false; installButton.disabled = false; }
+    };
   } else if (tabKey === "about") {
     area.innerHTML = `
       <div class="settings-app-card">

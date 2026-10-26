@@ -8,12 +8,18 @@ Tạo môi trường giả lập (Mock Environment) toàn diện để kiểm th
 import os
 import shutil
 import subprocess
+import shlex
 from pathlib import Path
 
 MOCK_ROOT = Path("/tmp/vxdevsync_mock_env")
 
 def run(cmd, cwd):
-    return subprocess.run(cmd, cwd=cwd, shell=True, capture_output=True, text=True)
+    # Fixture commands are authored here; parse their POSIX quotes portably.
+    for command in cmd.replace(chr(92), "/").split("&&"):
+        result = subprocess.run(shlex.split(command), cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if result.returncode:
+            raise RuntimeError(result.stderr)
+    return result
 
 def setup_mock_environment():
     if MOCK_ROOT.exists():

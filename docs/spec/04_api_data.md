@@ -168,3 +168,7 @@ Toàn bộ các phương thức được định nghĩa trên lớp `Api` trong 
 | `sync_skills_now()` | Không | `{"synced_files": List[str], "affected_agents": List[str]}` | Chạy tiến trình đồng bộ 2 chiều (Upstream + Downstream). |
 | `delete_skill_cascade(skill_name)`| `skill_name: str` | `{"success": bool, "deleted_locations": List[str]}` | **Xóa vật lý triệt để** skill tại Library và các Agents, đồng thời ghi vào Tombstone list. |
 | `unblock_tombstone(skill_name)` | `skill_name: str` | `{"success": bool}` | Xóa skill khỏi danh sách Tombstone khi muốn tạo lại. |
+
+## Gate phát hành1.0.0 — QA độc lập2026-10-26
+
+[QA và sửa lỗi thực tế](../release_1_0_0_review.md) ưu tiên hơn các tuyên bố hoàn tất trước đây. Inventory chỉ đọc; Sync không gom file ngoài phạm vi, dirty/staged/diverged phải safe-skip, tên skill không được thoát root/protected folders. Cấu hình lỗi giữ nguyên và có previous backup. Updater Python dùng signed manifest Ed25519/digest, Updates tab/startup check, mutation guard và staging/rollback; không dùng schema Tauri. Windows và haiMac có cùng engine, installer/updater khác nhau. [Vận hành](../desktop_release.md).

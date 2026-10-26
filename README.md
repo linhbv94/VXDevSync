@@ -56,7 +56,7 @@ open dist/VXDevSync.app
 
 ```bash
 cd vxdevsync
-./.venv/bin/python -m unittest tests/test_vxdevsync.py
+./.venv/bin/python -m scripts.run_tests
 ```
 
 ---
@@ -70,3 +70,9 @@ Toàn bộ tài liệu phân tích và thiết kế chi tiết nằm tại `docs
 - `03_ui_wireframe.md`: Thiết kế giao diện & bố cục màn hình.
 - `04_api_data.md`: Cấu trúc dữ liệu & Data Contracts.
 - `05_qa_acceptance.md`: Tiêu chuẩn kiểm thử và kịch bản nghiệm thu Gherkin.
+
+## Phát hành và cập nhật
+
+Tải bộ cài tại [GitHub Releases](https://github.com/linhbv94/VXDevSync/releases). Có bản Windows x64, Mac Apple Silicon và Mac Intel. Cần cài Git để đồng bộ repository. Các bản sau kiểm tra tại Cài đặt → Cập nhật.
+
+Quy trình build, ký updater và publish: [desktop_release.md](docs/desktop_release.md).
