@@ -1,14 +1,17 @@
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!ifndef VERSION
+  !define VERSION "1.0.1"
+!endif
 Name "VXDevSync"
-OutFile "dist\vxdevsync_1.0.0_windows_x64_setup.exe"
+OutFile "dist\vxdevsync_${VERSION}_windows_x64_setup.exe"
 InstallDir "$LOCALAPPDATA\Programs\VXDevSync"
 RequestExecutionLevel user
 ShowInstDetails show
-VIProductVersion "1.0.0.0"
+VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "VXDevSync"
-VIAddVersionKey "FileVersion" "1.0.0"
+VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "FileDescription" "VXDevSync Setup"
 VIAddVersionKey "LegalCopyright" "Bui Viet Linh"
 !insertmacro MUI_PAGE_INSTFILES

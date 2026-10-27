@@ -12,11 +12,21 @@ import urllib.parse
 import urllib.request
 
 
+def _patch_pyinstaller_sdk_downgrade(home: Path):
+    api_file = home / 'building' / 'api.py'
+    if api_file.exists():
+        text = api_file.read_text(encoding='utf-8')
+        target = 'osxutils.set_macos_sdk_version(build_name, *pylib_version)'
+        if target in text:
+            api_file.write_text(text.replace(target, 'pass # Retain exact SDK27 bootloader'), encoding='utf-8')
+
+
 def ensure_bootloader():
     if sys.platform != 'darwin':
         return
     import PyInstaller
     home = Path(PyInstaller.__file__).parent
+    _patch_pyinstaller_sdk_downgrade(home)
     installed = home / 'bootloader' / 'Darwin-64bit'
     gate = str(Path(__file__).with_name('macos_sdk_gate.mjs'))
     subprocess.run(['node', gate], check=True)

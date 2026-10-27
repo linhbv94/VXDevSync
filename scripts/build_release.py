@@ -33,5 +33,5 @@ elif sys.platform=='win32':
     run([str(Path('dist/VXDevSync/VXDevSync.exe').resolve()),'--self-test'])
     makensis=Path(os.environ.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'NSIS/makensis.exe'
     if not makensis.exists():raise RuntimeError('Missing NSIS on Windows runner')
-    run([str(makensis),'/NOCD','installer/windows_installer.nsi'])
+    run([str(makensis),f'/DVERSION={VERSION}','/NOCD','installer/windows_installer.nsi'])
 else:raise RuntimeError('Unsupported build platform')
