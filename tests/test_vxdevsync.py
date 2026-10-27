@@ -163,6 +163,32 @@ class TestVXDevSync(unittest.TestCase):
 
         self.assertFalse(normal["is_ignored"])
 
+    def test_sync_git_repos_error_details(self):
+        # Tạo mock repo không có remote để kiểm tra cơ chế báo lỗi chi tiết
+        repo_no_remote = self.test_path / "repo_no_remote_err"
+        repo_no_remote.mkdir(parents=True, exist_ok=True)
+        self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=repo_no_remote)
+        self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=repo_no_remote)
+        self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=repo_no_remote)
+        (repo_no_remote / "file.txt").write_text("content", encoding="utf-8")
+        self.api._git_engine.run_cmd(["add", "."], cwd=repo_no_remote)
+        self.api._git_engine.run_cmd(["commit", "-m", "init"], cwd=repo_no_remote)
+
+        # Chạy sync pull trên repo chưa gắn remote
+        res = self.api.sync_git_repos([str(repo_no_remote)], action="pull")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["total"], 1)
+        self.assertEqual(res["success_count"], 0)
+        self.assertEqual(res["failed_count"], 1)
+        self.assertEqual(len(res["results"]), 1)
+
+        err_item = res["results"][0]
+        self.assertFalse(err_item["success"])
+        self.assertEqual(err_item["name"], "repo_no_remote_err")
+        self.assertIn("remote", err_item["message"].lower())
+        self.assertIn("cmd", err_item)
+        self.assertIn("raw_error", err_item)
+
 
 if __name__ == "__main__":
     unittest.main()

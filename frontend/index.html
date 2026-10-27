@@ -125,6 +125,22 @@
               </svg>
               <span>Smart Sync thay đổi (<span id="count-sync-now">0</span>)</span>
             </button>
+            <button class="btn-secondary" id="btn-pull-all" title="Pull dữ liệu mới từ remote cho tất cả các repos">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 3v13"></path>
+                <path d="m6 10 6 6 6-6"></path>
+                <path d="M5 21h14"></path>
+              </svg>
+              <span>Pull tất cả (<span id="count-pull-now">0</span>)</span>
+            </button>
+            <button class="btn-secondary" id="btn-push-all" title="Push commit cục bộ lên remote cho tất cả các repos">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 19V6"></path>
+                <path d="m6 12 6-6 6 6"></path>
+                <path d="M5 21h14"></path>
+              </svg>
+              <span>Push tất cả (<span id="count-push-now">0</span>)</span>
+            </button>
           </div>
           <div class="selection-right">
             <span id="selected-status-text">Đã chọn: 0 repos</span>
@@ -494,6 +510,55 @@
               <polyline points="12 5 19 12 12 19"></polyline>
             </svg>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYNC EXECUTION & ERROR DETAILS MODAL -->
+    <div class="modal-overlay" id="modal-sync-errors">
+      <div class="modal-window" style="width: 640px; max-height: 82vh; padding: 20px; gap: 14px; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--color-danger); flex-shrink: 0;" id="sync-errors-icon">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);" id="sync-errors-title">Chi tiết Kết quả Đồng bộ Git</h3>
+          </div>
+          <button class="btn-icon" id="btn-close-sync-errors" aria-label="Đóng">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div id="sync-errors-summary" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+          <!-- Tóm tắt trạng thái -->
+        </div>
+
+        <div style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; max-height: 380px; padding-right: 4px;" id="sync-errors-list">
+          <!-- Chi tiết danh sách repo lỗi -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: 4px;">
+          <button class="btn-secondary" id="btn-copy-sync-errors" style="display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>Sao chép Log Lỗi</span>
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary" id="btn-dismiss-sync-errors">Đóng</button>
+            <button class="btn-primary" id="btn-retry-failed-sync" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              <span>Thử lại các Repo lỗi</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

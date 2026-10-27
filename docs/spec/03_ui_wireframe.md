@@ -37,7 +37,7 @@ Chế độ hiển thị danh sách các repositories trong Workspace hiện t�
 | Workspace: /Users/vic/_Work  •  Độ sâu: 3  •  Thời gian quét: 0.28s  •  Tìm thấy: 14 repos                         |
 |                                                                                                                    |
 | [ Bộ lọc: [Tất cả (14)]  [Cần Sync (4)]  [Đã Sạch (9)]  [Dirty/Lỗi (1)] ]   [Tìm kiếm repository...]               |
-| [x] Chọn tất cả    [v] Chỉ chọn repo có thay đổi (4)    [Smart Sync thay đổi (4)]  |  Đã chọn: 3 / 14 repos     |
+| [x] Chọn tất cả  [v] Chọn thay đổi (4)  [Smart Sync (4)]  [Pull tất cả (2)]  [Push tất cả (1)] | Đã chọn: 3 / 14 repos  |
 +--------------------------------------------------------------------------------------------------------------------+
 | [ ] | Dự án (Repository)     | Nhánh (Branch) | Trạng thái File | Git Sync       | Lệch   | Đề xuất   | Thao tác       |
 +-----+------------------------+----------------+-----------------+----------------+--------+-----------+----------------+
@@ -59,6 +59,14 @@ Chế độ hiển thị danh sách các repositories trong Workspace hiện t�
 
 ### Ý nghĩa & Tương tác trên Bảng Git Sync:
 - **Nút "Smart Sync thay đổi (N)" (One-Click Sync):** Đặt trực tiếp tại thanh Selection Bar, cho phép người dùng kích hoạt đồng bộ thông minh tất cả repo đang cần sync (Behind/Ahead/Dirty) chỉ với đúng **1 thao tác click chuột duy nhất**, không cần phải trải qua bước chọn checkbox thủ công.
+- **Nút "Pull tất cả (N)" & "Push tất cả (N)":** Đặt bên phải nút Smart Sync trên thanh Selection Bar:
+  - "Pull tất cả (N)": Kéo nhanh toàn bộ commit mới cho các repos đang Behind (hoặc toàn bộ repos có remote).
+  - "Push tất cả (N)": Đẩy nhanh toàn bộ commit mới cục bộ cho các repos đang Ahead lên remote.
+- **Cơ chế Báo lỗi Chi tiết & Modal Log Git:**
+  - Khi có bất kỳ repository nào đồng bộ thất bại, hệ thống tự động mở Modal "Chi tiết Lỗi Đồng bộ Git".
+  - Hiển thị tên repo, lệnh Git cụ thể đã chạy (`git pull --ff-only origin main`), thông điệp giải thích tiếng Việt và khung console log nguyên văn (`raw_error`) từ Git CLI.
+  - Hỗ trợ nút "Sao chép Log Lỗi" và nút "Thử lại các Repo lỗi".
+  - Hiển thị Badge "Lỗi PULL" / "Lỗi PUSH" trực tiếp trên dòng repo gặp sự cố trong bảng để click xem lại bất kỳ lúc nào.
 - **Thanh Tác vụ Nổi (Floating Batch Action Bar):**
   - Kế thừa và đồng bộ quy chuẩn từ `BatchActionBar` của [VXPhotos](../../vxphotos/src/components/BatchActionBar.tsx):
   - **Badge số lượng:** Hiển thị `[3 đã chọn]` nổi bật với viền và nền amber glass.

@@ -264,41 +264,73 @@ class GitEngine:
 
     def sync_single_repo(self, repo_path: Path, action: str = "smart_sync", timeout: int = 15) -> Dict[str, Any]:
         """Revalidate the worktree before every mutation; never merge diverged history."""
-        def result(success, message, selected=action):
-            return {"path": str(repo_path), "action": selected, "success": success, "message": message}
+        def result(success, message, selected=action, cmd="", raw_error=""):
+            return {
+                "path": str(repo_path),
+                "name": repo_path.name,
+                "action": selected,
+                "success": success,
+                "message": message,
+                "cmd": cmd,
+                "raw_error": raw_error
+            }
+
         if action not in ("smart_sync", "pull", "push"):
             return result(False, "Thao tác Git không hợp lệ")
         if not (repo_path / ".git").is_dir():
             return result(False, "Không phải Git repo")
+
         code, branch, err = self.run_cmd(["branch", "--show-current"], repo_path, timeout)
         if code or not branch:
-            return result(False, "Không xác định được nhánh; không đồng bộ detached HEAD")
+            return result(False, "Không xác định được nhánh; không đồng bộ detached HEAD", cmd="git branch --show-current", raw_error=err)
+
         code, dirty, err = self.run_cmd(["status", "--porcelain"], repo_path, timeout)
         if code:
-            return result(False, "Không kiểm tra được trạng thái worktree: " + err)
+            return result(False, "Không kiểm tra được trạng thái worktree: " + err, cmd="git status --porcelain", raw_error=err)
         if dirty:
-            return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)")
+            return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)", cmd="git status --porcelain", raw_error=f"Dirty files:\n{dirty.strip()}")
+
         code, remotes, err = self.run_cmd(["remote"], repo_path, timeout)
         names = remotes.splitlines() if not code else []
         remote = "origin" if "origin" in names else (names[0] if names else "")
         if not remote:
-            return result(False, "Chưa gắn remote")
+            return result(False, "Chưa gắn remote", cmd="git remote", raw_error="No remote configured")
+
         if action == "smart_sync":
             code, _, err = self.run_cmd(["fetch", remote, branch], repo_path, timeout)
             if code:
-                return result(False, "Không xác minh được remote: " + err)
+                return result(False, "Không xác minh được remote: " + err, cmd=f"git fetch {remote} {branch}", raw_error=err)
             code, counts, err = self.run_cmd(["rev-list", "--left-right", "--count", "HEAD...FETCH_HEAD"], repo_path, timeout)
             if code:
-                return result(False, "Không xác định được ahead/behind: " + err)
+                return result(False, "Không xác định được ahead/behind: " + err, cmd="git rev-list --left-right --count HEAD...FETCH_HEAD", raw_error=err)
             try:
                 ahead, behind = map(int, counts.split())
             except ValueError:
-                return result(False, "Trạng thái Git không hợp lệ")
+                return result(False, "Trạng thái Git không hợp lệ", raw_error=counts)
             if ahead and behind:
-                return result(False, "Cần merge thủ công (Diverged)")
+                return result(False, "Cần merge thủ công (Diverged)", cmd=f"git fetch {remote} {branch}", raw_error=f"Ahead: {ahead}, Behind: {behind}")
             if not ahead and not behind:
-                return result(True, "Đã đồng bộ", "none")
+                return result(True, "Đã đồng bộ", "none", cmd=f"git fetch {remote} {branch}")
             action = "push" if ahead else "pull"
+
         args = ["pull", "--ff-only", remote, branch] if action == "pull" else ["push", remote, f"HEAD:refs/heads/{branch}"]
         code, out, err = self.run_cmd(args, repo_path, timeout)
-        return result(code == 0, ("Đã " + action + " thành công") if code == 0 else ("Lỗi " + action + ": " + (err or out)), action)
+        cmd_str = f"git {' '.join(args)}"
+        raw_output = ((err or "") + ("\n" + out if out else "")).strip()
+
+        if code == 0:
+            return result(True, f"Đã {action} thành công", action, cmd=cmd_str, raw_error=raw_output)
+        else:
+            err_lower = raw_output.lower()
+            hint = ""
+            if "overwritten by merge" in err_lower or "local changes" in err_lower:
+                hint = "Xung đột: Có file thay đổi cục bộ chưa commit hoặc stash."
+            elif any(x in err_lower for x in ["auth", "permission denied", "could not read username", "terminal prompts disabled"]):
+                hint = "Lỗi xác thực Git Remote (Token / SSH key)."
+            elif any(x in err_lower for x in ["could not resolve host", "network is down", "timed out", "unable to access"]):
+                hint = "Lỗi kết nối mạng (Offline hoặc Timeout)."
+            elif "not possible to fast-forward" in err_lower or "non-fast-forward" in err_lower:
+                hint = "Nhánh đã bị phân kỳ (Diverged), không thể auto fast-forward."
+
+            msg = f"Lỗi {action}: {hint} {raw_output}".strip() if hint else f"Lỗi {action}: {raw_output}"
+            return result(False, msg, action, cmd=cmd_str, raw_error=raw_output)

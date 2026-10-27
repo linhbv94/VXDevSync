@@ -296,7 +296,17 @@
 .selection-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-view-repo-error {
+  transition: all 0.15s ease;
+}
+
+.btn-view-repo-error:hover {
+  filter: brightness(1.25);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
 }
 
 .btn-secondary {

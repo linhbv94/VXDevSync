@@ -31,7 +31,9 @@ const state = {
   skillToDelete: "",
   isScanningGit: false,
   isSyncingGit: false,
-  isSyncingSkills: false
+  isSyncingSkills: false,
+  lastSyncResults: {},
+  currentErrorResults: []
 };
 
 // Khởi chạy khi DOM và pywebview sẵn sàng
@@ -259,6 +261,52 @@ function setupEventListeners() {
     executeGitAction("smart_sync", changed.map(r => r.path));
   });
 
+  // Git Pull All Button
+  const btnPullAll = document.getElementById("btn-pull-all");
+  if (btnPullAll) {
+    btnPullAll.addEventListener("click", () => {
+      const activeRepos = state.gitRepos.filter(r => !r.is_ignored && r.has_remote);
+      if (activeRepos.length === 0) {
+        showToast("Không tìm thấy repository có remote để Pull", "info");
+        return;
+      }
+      const behindRepos = activeRepos.filter(r => r.behind_count > 0);
+      const targets = behindRepos.length > 0 ? behindRepos : activeRepos.filter(r => !r.is_dirty);
+      if (targets.length === 0) {
+        showToast("Tất cả repository đã ở phiên bản mới nhất", "info");
+        return;
+      }
+      executeGitAction("pull", targets.map(r => r.path));
+    });
+  }
+
+  // Git Push All Button
+  const btnPushAll = document.getElementById("btn-push-all");
+  if (btnPushAll) {
+    btnPushAll.addEventListener("click", () => {
+      const activeRepos = state.gitRepos.filter(r => !r.is_ignored && r.has_remote);
+      const aheadRepos = activeRepos.filter(r => r.ahead_count > 0);
+      if (aheadRepos.length === 0) {
+        showToast("Không có repository nào có commit mới cần Push", "info");
+        return;
+      }
+      executeGitAction("push", aheadRepos.map(r => r.path));
+    });
+  }
+
+  // Sync Errors Modal Controls
+  const btnCloseSyncErrors = document.getElementById("btn-close-sync-errors");
+  if (btnCloseSyncErrors) btnCloseSyncErrors.addEventListener("click", closeSyncErrorsModal);
+
+  const btnDismissSyncErrors = document.getElementById("btn-dismiss-sync-errors");
+  if (btnDismissSyncErrors) btnDismissSyncErrors.addEventListener("click", closeSyncErrorsModal);
+
+  const btnCopySyncErrors = document.getElementById("btn-copy-sync-errors");
+  if (btnCopySyncErrors) btnCopySyncErrors.addEventListener("click", copySyncErrorsLog);
+
+  const btnRetryFailedSync = document.getElementById("btn-retry-failed-sync");
+  if (btnRetryFailedSync) btnRetryFailedSync.addEventListener("click", retryFailedSyncRepos);
+
   // Git Floating Action Bar Buttons (Icon-Only Control Bar like VXPhotos)
   document.getElementById("btn-action-smart-sync").addEventListener("click", () => executeGitAction("smart_sync", Array.from(state.selectedRepoPaths)));
   document.getElementById("btn-action-pull").addEventListener("click", () => executeGitAction("pull", Array.from(state.selectedRepoPaths)));
@@ -269,12 +317,19 @@ function setupEventListeners() {
     renderGitReposTable();
   });
 
-  // Phím tắt Escape để hủy chọn tất cả khi đang ở tab Git Sync
+  // Phím tắt Escape để đóng modal hoặc hủy chọn tất cả
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && state.selectedRepoPaths.size > 0 && state.currentTab === "git-sync-view") {
-      state.selectedRepoPaths.clear();
-      updateSelectionUI();
-      renderGitReposTable();
+    if (e.key === "Escape") {
+      const syncErrorsModal = document.getElementById("modal-sync-errors");
+      if (syncErrorsModal && syncErrorsModal.classList.contains("active")) {
+        closeSyncErrorsModal();
+        return;
+      }
+      if (state.selectedRepoPaths.size > 0 && state.currentTab === "git-sync-view") {
+        state.selectedRepoPaths.clear();
+        updateSelectionUI();
+        renderGitReposTable();
+      }
     }
   });
 
@@ -384,6 +439,8 @@ function updateGitCounts() {
   const clean = activeRepos.filter(r => r.is_clean && r.behind_count === 0 && r.ahead_count === 0).length;
   const dirty = activeRepos.filter(r => r.is_dirty || r.is_diverged).length;
   const changed = activeRepos.filter(r => r.is_dirty || r.behind_count > 0 || r.ahead_count > 0).length;
+  const pullCount = activeRepos.filter(r => r.has_remote && r.behind_count > 0).length;
+  const pushCount = activeRepos.filter(r => r.has_remote && r.ahead_count > 0).length;
 
   document.getElementById("count-all").textContent = all;
   document.getElementById("count-sync").textContent = syncNeeded;
@@ -392,6 +449,10 @@ function updateGitCounts() {
   document.getElementById("count-changed").textContent = changed;
   const countSyncNow = document.getElementById("count-sync-now");
   if (countSyncNow) countSyncNow.textContent = changed;
+  const countPullNow = document.getElementById("count-pull-now");
+  if (countPullNow) countPullNow.textContent = pullCount;
+  const countPushNow = document.getElementById("count-push-now");
+  if (countPushNow) countPushNow.textContent = pushCount;
 }
 
 function getFilteredGitRepos() {
@@ -464,6 +525,19 @@ function renderGitReposTable() {
     const offsetStr = isIgnored ? "--" : `+${repo.ahead_count} / -${repo.behind_count}`;
     const suggestedActionStr = isIgnored ? "Đã loại trừ" : repo.suggested_action;
 
+    // Kiểm tra nếu repo này vừa bị sync lỗi
+    const lastResult = state.lastSyncResults?.[repo.path];
+    let syncErrorIndicator = "";
+    if (lastResult && !lastResult.success) {
+      syncErrorIndicator = `
+        <div style="margin-top: 3px;">
+          <span class="badge badge-danger btn-view-repo-error" data-path="${escapeHtml(repo.path)}" style="cursor: pointer; padding: 2px 6px;" title="Bấm để xem chi tiết lỗi: ${escapeHtml(lastResult.message)}">
+            <span class="badge-dot badge-dot-danger"></span>Lỗi ${escapeHtml(lastResult.action.toUpperCase())}
+          </span>
+        </div>
+      `;
+    }
+
     tr.innerHTML = `
       <td style="text-align: center;">
         <input type="checkbox" class="repo-checkbox" ${isSelected ? "checked" : ""} ${isIgnored ? "disabled title='Repository đã bị loại trừ'" : ""}>
@@ -481,6 +555,7 @@ function renderGitReposTable() {
       <td><span class="offset-text" style="${isIgnored ? 'color: var(--text-muted);' : ''}">${offsetStr}</span></td>
       <td>
         <span style="font-size: 11px; color: var(--text-secondary);">${escapeHtml(suggestedActionStr)}</span>
+        ${syncErrorIndicator}
       </td>
       <td style="text-align: right;">
         ${isIgnored
@@ -542,6 +617,23 @@ function renderGitReposTable() {
       btnPush.addEventListener("click", (e) => {
         e.stopPropagation();
         executeGitAction("push", [repo.path]);
+      });
+    }
+
+    const errBtn = tr.querySelector(".btn-view-repo-error");
+    if (errBtn) {
+      errBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const p = errBtn.getAttribute("data-path");
+        const errItem = state.lastSyncResults[p];
+        if (errItem) {
+          openSyncErrorsModal({
+            total: 1,
+            success_count: 0,
+            failed_count: 1,
+            results: [errItem]
+          });
+        }
       });
     }
 
@@ -641,8 +733,24 @@ async function executeGitAction(action, paths) {
   try {
     const res = await window.pywebview.api.sync_git_repos(paths, action);
     if (res.success) {
-      showToast(`Hoàn tất: ${res.success_count}/${res.total} repos thành công`, "success");
+      // Lưu lại kết quả sync của từng repo vào state
+      if (res.results) {
+        res.results.forEach(item => {
+          state.lastSyncResults[item.path] = item;
+        });
+      }
+
+      const failedCount = res.failed_count !== undefined ? res.failed_count : (res.total - res.success_count);
+
+      if (failedCount > 0) {
+        showToast(`Đồng bộ: ${res.success_count}/${res.total} thành công, ${failedCount} repo gặp sự cố`, "warning", 5000);
+        openSyncErrorsModal(res);
+      } else {
+        showToast(`Hoàn tất: Đã ${action.toUpperCase()} thành công cả ${res.total} repos`, "success");
+      }
       triggerGitScan();
+    } else {
+      showToast(res.error || "Lỗi thực thi Git action", "danger");
     }
   } catch (err) {
     console.error(err);
@@ -650,6 +758,120 @@ async function executeGitAction(action, paths) {
   } finally {
     state.isSyncingGit = false;
   }
+}
+
+// Modal Chi tiết Lỗi Đồng bộ Git
+function openSyncErrorsModal(syncResponse) {
+  const modal = document.getElementById("modal-sync-errors");
+  if (!modal) return;
+
+  const results = syncResponse?.results || [];
+  const errors = results.filter(r => !r.success);
+  state.currentErrorResults = errors;
+
+  const titleEl = document.getElementById("sync-errors-title");
+  const summaryEl = document.getElementById("sync-errors-summary");
+  const listEl = document.getElementById("sync-errors-list");
+  const iconEl = document.getElementById("sync-errors-icon");
+  const retryBtn = document.getElementById("btn-retry-failed-sync");
+
+  if (errors.length === 0) {
+    if (titleEl) titleEl.textContent = "Kết quả Đồng bộ Git";
+    if (iconEl) iconEl.style.color = "var(--color-success)";
+    if (summaryEl) {
+      summaryEl.innerHTML = `<span style="color: var(--color-success);">Hoàn tất: Đã đồng bộ thành công cả ${syncResponse.total || results.length} repositories.</span>`;
+    }
+    if (listEl) listEl.innerHTML = "";
+    if (retryBtn) retryBtn.style.display = "none";
+  } else {
+    if (titleEl) titleEl.textContent = `Phát hiện Lỗi Đồng bộ Git (${errors.length} repo)`;
+    if (iconEl) iconEl.style.color = "var(--color-danger)";
+    if (summaryEl) {
+      summaryEl.innerHTML = `Đồng bộ: <strong>${syncResponse.success_count || (syncResponse.total - errors.length)}/${syncResponse.total || results.length}</strong> repos thành công. Có <strong style="color: var(--color-danger);">${errors.length}</strong> repository gặp sự cố:`;
+    }
+    if (retryBtn) retryBtn.style.display = "inline-flex";
+
+    if (listEl) {
+      listEl.innerHTML = errors.map(item => `
+        <div class="sync-error-card" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-danger"><span class="badge-dot badge-dot-danger"></span>${escapeHtml(item.action.toUpperCase())} THẤT BẠI</span>
+              <strong style="color: var(--text-primary); font-family: var(--font-mono); font-size: 13px;">${escapeHtml(item.name || item.path.split('/').pop())}</strong>
+            </div>
+            <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(item.path)}</span>
+          </div>
+
+          <div style="font-size: 11px; color: #fbbf24; font-weight: 500; line-height: 1.4;">
+            ${escapeHtml(item.message)}
+          </div>
+
+          ${item.cmd ? `
+            <div style="font-size: 10.5px; color: var(--text-muted); font-family: var(--font-mono); background: rgba(255, 255, 255, 0.04); padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px;">
+              <span style="color: var(--accent-primary);">&gt;</span>
+              <span>${escapeHtml(item.cmd)}</span>
+            </div>
+          ` : ''}
+
+          ${item.raw_error ? `
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Git Output:</div>
+              <pre style="margin: 0; padding: 10px; background: #08090d; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; color: #f87171; white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow-y: auto;">${escapeHtml(item.raw_error)}</pre>
+            </div>
+          ` : ''}
+        </div>
+      `).join("");
+    }
+  }
+
+  modal.classList.add("active");
+}
+
+function closeSyncErrorsModal() {
+  const modal = document.getElementById("modal-sync-errors");
+  if (modal) modal.classList.remove("active");
+}
+
+function copySyncErrorsLog() {
+  if (!state.currentErrorResults || state.currentErrorResults.length === 0) {
+    showToast("Không có log lỗi để sao chép", "info");
+    return;
+  }
+
+  const lines = [
+    "==================================================",
+    "BÁO CÁO LỖI ĐỒNG BỘ GIT — VXDevSync",
+    `Thời gian: ${new Date().toLocaleString()}`,
+    "==================================================",
+    ""
+  ];
+
+  state.currentErrorResults.forEach((item, idx) => {
+    lines.push(`[${idx + 1}/${state.currentErrorResults.length}] Repo: ${item.name || item.path}`);
+    lines.push(`    Đường dẫn: ${item.path}`);
+    lines.push(`    Thao tác: ${item.action.toUpperCase()}`);
+    if (item.cmd) lines.push(`    Lệnh chạy: ${item.cmd}`);
+    lines.push(`    Tóm tắt: ${item.message}`);
+    if (item.raw_error) {
+      lines.push("    Chi tiết lỗi (Git Stderr):");
+      lines.push(item.raw_error.split("\n").map(l => "      " + l).join("\n"));
+    }
+    lines.push("--------------------------------------------------");
+  });
+
+  const fullText = lines.join("\n");
+  navigator.clipboard.writeText(fullText).then(() => {
+    showToast("Đã sao chép toàn bộ log lỗi vào clipboard", "success");
+  }).catch(() => {
+    showToast("Không thể ghi vào clipboard", "danger");
+  });
+}
+
+function retryFailedSyncRepos() {
+  if (!state.currentErrorResults || state.currentErrorResults.length === 0) return;
+  const paths = state.currentErrorResults.map(r => r.path);
+  closeSyncErrorsModal();
+  executeGitAction("smart_sync", paths);
 }
 
 function renderRecentWorkspacesDropdown() {

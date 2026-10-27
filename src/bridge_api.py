@@ -180,10 +180,12 @@ class BridgeApi:
                 success_count += 1
             results.append(res)
 
+        failed_count = len(repo_paths) - success_count
         return {
             "success": True,
             "total": len(repo_paths),
             "success_count": success_count,
+            "failed_count": failed_count,
             "results": results
         }
 
