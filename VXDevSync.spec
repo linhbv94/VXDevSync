@@ -5,14 +5,16 @@ import sys
 block_cipher = None
 project_root = Path.cwd()
 
+from PyInstaller.utils.hooks import collect_data_files
+
 datas = [
     (str(project_root / "frontend"), "frontend"),
     (str(project_root / "public"), "public"),
     (str(project_root / "icon.png"), "."),
     (str(project_root / "src" / "release_config.json"), "src"),
-]
+] + collect_data_files("certifi")
 
-hiddenimports = ["webview", "src", "src.bridge_api", "src.config_manager", "src.git_engine", "src.skills_engine", "src.adapter_engine", "src.window_chrome", "src.updater", "cryptography.hazmat.primitives.asymmetric.ed25519"]
+hiddenimports = ["webview", "src", "src.bridge_api", "src.config_manager", "src.git_engine", "src.skills_engine", "src.adapter_engine", "src.window_chrome", "src.updater", "cryptography.hazmat.primitives.asymmetric.ed25519", "certifi"]
 if sys.platform == "darwin":
     hiddenimports += ["webview.platforms.cocoa", "objc", "AppKit", "WebKit", "Foundation"]
 else:

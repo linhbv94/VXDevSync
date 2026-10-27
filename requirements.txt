@@ -3,3 +3,4 @@ pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'
 pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'
 
 cryptography==46.0.3
+certifi>=2024.2.2

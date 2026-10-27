@@ -10,6 +10,7 @@ import platform
 import plistlib
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -22,6 +23,51 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from src.version import VERSION, APP_ID, REPOSITORY
 
 MAX_PACKAGE = 512 * 1024 * 1024
+
+def get_ssl_context():
+    """Tạo SSL context có xác thực CA, hỗ trợ SSL_CERT_FILE tùy chỉnh, default certs và certifi."""
+    # 1. Nếu người dùng cấu hình SSL_CERT_FILE tùy chỉnh, ưu tiên sử dụng
+    custom_cafile = os.environ.get('SSL_CERT_FILE')
+    if custom_cafile and os.path.isfile(custom_cafile):
+        try:
+            return ssl.create_default_context(cafile=custom_cafile)
+        except Exception:
+            pass
+
+    # 2. Khởi tạo default context và nạp trust store mặc định của hệ thống
+    try:
+        context = ssl.create_default_context()
+        context.load_default_certs()
+    except Exception:
+        context = ssl.create_default_context()
+
+    # 3. Bổ sung thêm Mozilla CA roots từ certifi nếu có
+    certifi_loaded = False
+    try:
+        import certifi
+        cafile = certifi.where()
+        if cafile and os.path.isfile(cafile):
+            context.load_verify_locations(cafile=cafile)
+            certifi_loaded = True
+    except Exception:
+        pass
+
+    # 4. Nếu chưa nạp được certifi, nạp bổ sung các bundle CA hệ thống macOS / Linux
+    if not certifi_loaded:
+        for cafile in (
+            '/etc/ssl/cert.pem',
+            '/private/etc/ssl/cert.pem',
+            '/etc/pki/tls/certs/ca-bundle.crt',
+            '/etc/ssl/certs/ca-certificates.crt',
+        ):
+            if os.path.isfile(cafile):
+                try:
+                    context.load_verify_locations(cafile=cafile)
+                    break
+                except Exception:
+                    pass
+
+    return context
 
 def canonical(payload):
     return json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode('utf-8')
@@ -150,7 +196,8 @@ class AppUpdater:
 
     def check(self):
         url=f'https://github.com/{REPOSITORY}/releases/latest/download/latest.json'
-        with urlopen(url, timeout=15) as response:
+        context=get_ssl_context()
+        with urlopen(url, timeout=15, context=context) as response:
             data=response.read(1024*1024+1)
         if len(data)>1024*1024:raise ValueError('Manifest vượt giới hạn')
         payload=verify_manifest(json.loads(data),self.public_key)
@@ -166,8 +213,9 @@ class AppUpdater:
         key=platform_key();entry=self.pending['platforms'].get(key)
         if not entry:raise ValueError('Release chưa có gói cho nền tảng này')
         folder=Path(tempfile.mkdtemp(prefix='vxdevsync_download_'));package=folder/('setup.exe' if key=='windows_x64' else 'app.tar.gz')
+        context=get_ssl_context()
         try:
-            with urlopen(entry['url'],timeout=30) as response,package.open('xb') as output:
+            with urlopen(entry['url'],timeout=30,context=context) as response,package.open('xb') as output:
                 size=0
                 while True:
                     block=response.read(65536)

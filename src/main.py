@@ -2,6 +2,13 @@ import sys
 import os
 from pathlib import Path
 
+# Cấu hình đường dẫn chứng chỉ SSL cho môi trường macOS / Linux nếu chưa có
+if "SSL_CERT_FILE" not in os.environ:
+    for candidate in ("/etc/ssl/cert.pem", "/private/etc/ssl/cert.pem", "/etc/pki/tls/certs/ca-bundle.crt"):
+        if os.path.exists(candidate):
+            os.environ["SSL_CERT_FILE"] = candidate
+            break
+
 # Thêm đường dẫn project root vào sys.path
 if getattr(sys, "frozen", False):
     root_dir = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
@@ -19,9 +26,12 @@ if len(sys.argv) == 3 and sys.argv[1] == '--apply-update':
 if '--self-test' in sys.argv:
     import json
     import webview
-    from src.updater import AppUpdater
+    from src.updater import AppUpdater, get_ssl_context
     from src.version import VERSION, APP_ID
     AppUpdater()
+    ssl_ctx = get_ssl_context()
+    if ssl_ctx is None:
+        raise ValueError("Không thể khởi tạo SSL Context")
     if sys.platform == 'darwin':
         import webview.platforms.cocoa
     elif sys.platform == 'win32':

@@ -62,3 +62,21 @@ class UpdaterTests(unittest.TestCase):
             with patch.object(Path,'rename',failing):
                 with self.assertRaises(OSError):swap_mac_bundle(stage,old)
             self.assertEqual((old/'marker').read_text(),'old')
+    def test_get_ssl_context_returns_valid_context(self):
+        import ssl
+        import os
+        from unittest.mock import patch
+        from src.updater import get_ssl_context
+        ctx = get_ssl_context()
+        self.assertIsNotNone(ctx)
+        self.assertTrue(ctx.check_hostname)
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        
+        # Test custom SSL_CERT_FILE override
+        with tempfile.NamedTemporaryFile(suffix='.pem') as f:
+            f.write(b'-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n')
+            f.flush()
+            with patch.dict(os.environ, {'SSL_CERT_FILE': f.name}):
+                custom_ctx = get_ssl_context()
+                self.assertIsNotNone(custom_ctx)
+                self.assertTrue(custom_ctx.check_hostname)
