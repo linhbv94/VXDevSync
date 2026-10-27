@@ -67,6 +67,7 @@ coll = COLLECT(
 )
 
 if sys.platform == "darwin":
+    from src.version import VERSION
     app = BUNDLE(
         coll,
         name="VXDevSync.app",
@@ -76,8 +77,8 @@ if sys.platform == "darwin":
             "CFBundleName": "VXDevSync",
             "CFBundleDisplayName": "VXDevSync",
             "CFBundleIdentifier": "com.ztools.vxdevsync",
-            "CFBundleVersion": "1.0.0",
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleVersion": VERSION,
+            "CFBundleShortVersionString": VERSION,
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             "NSRequiresAquaSystemAppearance": False,

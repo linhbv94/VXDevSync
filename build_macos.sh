@@ -5,6 +5,9 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
+# Keep packaging cache inside this project; never clean shared user caches.
+export PYINSTALLER_CONFIG_DIR="$DIR/.build_cache/pyinstaller_sdk27"
+
 echo "=========================================="
 echo "[Build] Đang đóng gói VXDevSync thành macOS .app"
 echo "=========================================="
@@ -15,11 +18,15 @@ if [ ! -d ".venv" ]; then
     exit 1
 fi
 
+node scripts/macos_sdk_gate.mjs
+
 # 2. Đảm bảo pyinstaller đã cài đặt
 ./.venv/bin/pip show pyinstaller >/dev/null 2>&1 || {
     echo "[Install] Đang cài đặt pyinstaller..."
     ./.venv/bin/pip install pyinstaller
 }
+
+./.venv/bin/python -m scripts.build_macos_bootloader
 
 # 3. Dọn dẹp thư mục build/dist cũ
 echo "[Clean] Dọn dẹp bản build cũ..."
@@ -35,12 +42,8 @@ if [ ! -d "$APP_PATH" ]; then
     exit 1
 fi
 
-# 4.1. Chuẩn hóa Mach-O LC_BUILD_VERSION sang SDK 15.5 tương thích AppKit (khớp chuẩn VXMedia/VXmp3)
-EXE_PATH="$APP_PATH/Contents/MacOS/VXDevSync"
-if [ -f "$EXE_PATH" ]; then
-    echo "[SDK] Đang chuẩn hóa SDK metadata sang 15.5 (khớp chuẩn AppKit VXMedia/VXmp3 bezel 12pt)..."
-    vtool -set-build-version macos 11.0 15.5 -replace -output "$EXE_PATH" "$EXE_PATH"
-fi
+# Verify real SDK; never rewrite LC_BUILD_VERSION to imitate a different build.
+node scripts/macos_sdk_gate.mjs --artifact "$APP_PATH/Contents/MacOS/VXDevSync"
 
 # 5. Ký ad-hoc codesign để macOS chạy mượt mà
 echo "[Sign] Đang ký ad-hoc codesign cho bundle..."
