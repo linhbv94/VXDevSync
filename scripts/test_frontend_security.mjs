@@ -13,4 +13,8 @@ test('untrusted repository/skill/path labels cannot become bridge-capable HTML',
   assert.ok(source.includes('${escapeHtml('+name+')}'),name);
   assert.ok(!source.includes('${'+name+'}'),name);
  }
+ assert.ok(source.includes('${escapeHtml(item.cmd)}'));
+ assert.ok(source.includes('${escapeHtml(item.raw_error)}'));
+ assert.ok(source.includes('${escapeHtml(item.message)}'));
+ assert.ok(source.includes('${escapeHtml(item.path)}'));
 });

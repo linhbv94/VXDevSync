@@ -325,10 +325,12 @@ class GitEngine:
             hint = ""
             if "overwritten by merge" in err_lower or "local changes" in err_lower:
                 hint = "Xung đột: Có file thay đổi cục bộ chưa commit hoặc stash."
-            elif any(x in err_lower for x in ["auth", "permission denied", "could not read username", "terminal prompts disabled"]):
-                hint = "Lỗi xác thực Git Remote (Token / SSH key)."
-            elif any(x in err_lower for x in ["could not resolve host", "network is down", "timed out", "unable to access"]):
-                hint = "Lỗi kết nối mạng (Offline hoặc Timeout)."
+            elif "certificate" in err_lower or "ssl" in err_lower:
+                hint = "Lỗi chứng chỉ bảo mật SSL/TLS khi kết nối tới Git Remote."
+            elif any(x in err_lower for x in ["401", "403", "auth", "permission denied", "could not read username", "terminal prompts disabled"]):
+                hint = "Lỗi xác thực hoặc không đủ quyền truy cập Git Remote (Token / SSH key / 403 Forbidden)."
+            elif any(x in err_lower for x in ["could not resolve host", "network is down", "timed out", "connection refused", "failed to connect"]):
+                hint = "Lỗi kết nối mạng (Không tìm thấy host, Offline hoặc Timeout)."
             elif "not possible to fast-forward" in err_lower or "non-fast-forward" in err_lower:
                 hint = "Nhánh đã bị phân kỳ (Diverged), không thể auto fast-forward."
 

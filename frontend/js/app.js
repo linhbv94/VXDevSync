@@ -271,12 +271,11 @@ function setupEventListeners() {
         return;
       }
       const behindRepos = activeRepos.filter(r => r.behind_count > 0);
-      const targets = behindRepos.length > 0 ? behindRepos : activeRepos.filter(r => !r.is_dirty);
-      if (targets.length === 0) {
-        showToast("Tất cả repository đã ở phiên bản mới nhất", "info");
+      if (behindRepos.length === 0) {
+        showToast("Không có repository nào cần Pull (Tất cả đã ở phiên bản mới nhất)", "info");
         return;
       }
-      executeGitAction("pull", targets.map(r => r.path));
+      executeGitAction("pull", behindRepos.map(r => r.path));
     });
   }
 
@@ -531,9 +530,9 @@ function renderGitReposTable() {
     if (lastResult && !lastResult.success) {
       syncErrorIndicator = `
         <div style="margin-top: 3px;">
-          <span class="badge badge-danger btn-view-repo-error" data-path="${escapeHtml(repo.path)}" style="cursor: pointer; padding: 2px 6px;" title="Bấm để xem chi tiết lỗi: ${escapeHtml(lastResult.message)}">
+          <button type="button" class="badge badge-danger btn-view-repo-error" data-path="${escapeHtml(repo.path)}" style="cursor: pointer; padding: 2px 6px; border: none; font-family: inherit; font-size: 10px; display: inline-flex; align-items: center; gap: 4px;" aria-label="Xem chi tiết lỗi ${escapeHtml(lastResult.action.toUpperCase())} của repository ${escapeHtml(repo.name)}" title="Bấm để xem chi tiết lỗi: ${escapeHtml(lastResult.message)}">
             <span class="badge-dot badge-dot-danger"></span>Lỗi ${escapeHtml(lastResult.action.toUpperCase())}
-          </span>
+          </button>
         </div>
       `;
     }
@@ -765,6 +764,9 @@ function openSyncErrorsModal(syncResponse) {
   const modal = document.getElementById("modal-sync-errors");
   if (!modal) return;
 
+  // Lưu phần tử active trước khi mở modal để khôi phục focus khi đóng
+  state.lastActiveElement = document.activeElement;
+
   const results = syncResponse?.results || [];
   const errors = results.filter(r => !r.success);
   state.currentErrorResults = errors;
@@ -825,11 +827,19 @@ function openSyncErrorsModal(syncResponse) {
   }
 
   modal.classList.add("active");
+  const closeBtn = document.getElementById("btn-close-sync-errors");
+  if (closeBtn) closeBtn.focus();
 }
 
 function closeSyncErrorsModal() {
   const modal = document.getElementById("modal-sync-errors");
   if (modal) modal.classList.remove("active");
+
+  // Trả focus về phần tử kích hoạt trước đó
+  if (state.lastActiveElement && typeof state.lastActiveElement.focus === "function") {
+    state.lastActiveElement.focus();
+    state.lastActiveElement = null;
+  }
 }
 
 function copySyncErrorsLog() {
@@ -869,9 +879,29 @@ function copySyncErrorsLog() {
 
 function retryFailedSyncRepos() {
   if (!state.currentErrorResults || state.currentErrorResults.length === 0) return;
-  const paths = state.currentErrorResults.map(r => r.path);
+
+  // Lọc bỏ các repo đã bị loại trừ khỏi danh sách retry
+  const activeErrors = state.currentErrorResults.filter(item => {
+    const repo = state.gitRepos.find(r => r.path === item.path);
+    return repo ? !repo.is_ignored : true;
+  });
+
+  if (activeErrors.length === 0) {
+    showToast("Tất cả các repository lỗi đều đã bị loại trừ", "info");
+    closeSyncErrorsModal();
+    return;
+  }
+
   closeSyncErrorsModal();
-  executeGitAction("smart_sync", paths);
+
+  // Nhóm các repo theo action ban đầu để bảo toàn chính xác thao tác (pull / push / smart_sync)
+  const pullPaths = activeErrors.filter(e => e.action === "pull").map(e => e.path);
+  const pushPaths = activeErrors.filter(e => e.action === "push").map(e => e.path);
+  const smartPaths = activeErrors.filter(e => e.action !== "pull" && e.action !== "push").map(e => e.path);
+
+  if (pullPaths.length > 0) executeGitAction("pull", pullPaths);
+  if (pushPaths.length > 0) executeGitAction("push", pushPaths);
+  if (smartPaths.length > 0) executeGitAction("smart_sync", smartPaths);
 }
 
 function renderRecentWorkspacesDropdown() {

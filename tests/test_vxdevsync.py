@@ -189,6 +189,54 @@ class TestVXDevSync(unittest.TestCase):
         self.assertIn("cmd", err_item)
         self.assertIn("raw_error", err_item)
 
+    def test_sync_git_repos_skips_ignored(self):
+        # Kiểm tra repo nằm trong ignore_list được bỏ qua an toàn khi gọi sync_git_repos
+        repo_ignored = self.test_path / "repo_ignored_test"
+        repo_ignored.mkdir(parents=True, exist_ok=True)
+        self.api._config_manager.add_to_git_ignore("repo_ignored_test")
+
+        res = self.api.sync_git_repos([str(repo_ignored)], action="pull")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["total"], 1)
+        self.assertEqual(res["success_count"], 0)
+        self.assertEqual(res["failed_count"], 1)
+        self.assertIn("loại trừ", res["results"][0]["message"])
+
+    def test_git_error_hints_classification(self):
+        # Kiểm tra phân loại lỗi Git sang gợi ý tiếng Việt chính xác
+        repo_test = self.test_path / "repo_hint_test"
+        repo_test.mkdir(parents=True, exist_ok=True)
+        self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=repo_test)
+        self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=repo_test)
+        self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=repo_test)
+        (repo_test / "file.txt").write_text("content", encoding="utf-8")
+        self.api._git_engine.run_cmd(["add", "."], cwd=repo_test)
+        self.api._git_engine.run_cmd(["commit", "-m", "init"], cwd=repo_test)
+        self.api._git_engine.run_cmd(["remote", "add", "origin", "https://invalid.test/repo.git"], cwd=repo_test)
+
+        # Mock các đầu ra lỗi khác nhau để kiểm tra hint
+        from unittest.mock import patch
+
+        cases = [
+            ("error: Your local changes to the following files would be overwritten by merge", "Xung đột"),
+            ("fatal: unable to access 'https://...': SSL certificate problem: certificate has expired", "chứng chỉ bảo mật SSL/TLS"),
+            ("fatal: unable to access 'https://...': The requested URL returned error: 403", "403 Forbidden"),
+            ("fatal: unable to access 'https://...': Could not resolve host: invalid.test", "Không tìm thấy host, Offline hoặc Timeout"),
+            ("fatal: Not possible to fast-forward, aborting.", "phân kỳ (Diverged)")
+        ]
+
+        for mock_err, expected_hint in cases:
+            orig_run_cmd = self.api._git_engine.run_cmd
+            def mock_run_cmd_side_effect(args, cwd, timeout=15):
+                if args[0] == "pull":
+                    return (1, "", mock_err)
+                return orig_run_cmd(args, cwd, timeout)
+
+            with patch.object(self.api._git_engine, "run_cmd", side_effect=mock_run_cmd_side_effect):
+                res = self.api._git_engine.sync_single_repo(repo_test, action="pull")
+                self.assertFalse(res["success"])
+                self.assertIn(expected_hint, res["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -172,9 +172,23 @@ class BridgeApi:
         """Đồng bộ một danh sách repositories được tick chọn (hoặc tất cả)."""
         results = []
         success_count = 0
+        cfg = self._config_manager.load_config()
+        ignore_list = set(cfg.git_sync.ignore_list or [])
 
         for p_str in repo_paths:
             p = Path(p_str)
+            if p.name in ignore_list or any(part in ignore_list for part in p.parts):
+                results.append({
+                    "path": str(p),
+                    "name": p.name,
+                    "action": action,
+                    "success": False,
+                    "message": "Bỏ qua an toàn: Repository đã nằm trong danh sách loại trừ (Ignored)",
+                    "cmd": "",
+                    "raw_error": "Repo is in ignore_list"
+                })
+                continue
+
             res = self._git_engine.sync_single_repo(p, action=action)
             if res.get("success"):
                 success_count += 1
