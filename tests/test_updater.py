@@ -80,3 +80,60 @@ class UpdaterTests(unittest.TestCase):
                 custom_ctx = get_ssl_context()
                 self.assertIsNotNone(custom_ctx)
                 self.assertTrue(custom_ctx.check_hostname)
+
+    def test_apply_mac_update_flow(self):
+        import plistlib
+        from unittest.mock import patch, MagicMock
+        from src.updater import apply_mac_update
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            target = root / 'VXDevSync.app'
+            target.mkdir()
+            (target / 'Contents').mkdir()
+            with (target / 'Contents' / 'Info.plist').open('wb') as f:
+                plistlib.dump({'CFBundleIdentifier': APP_ID, 'CFBundleShortVersionString': '1.0.2'}, f)
+            (target / 'old_file.txt').write_text('old')
+
+            staging_dir = root / '.vxdevsync_update_test'
+            staging_dir.mkdir()
+            stage = staging_dir / 'VXDevSync.app'
+            stage.mkdir()
+            (stage / 'Contents').mkdir()
+            with (stage / 'Contents' / 'Info.plist').open('wb') as f:
+                plistlib.dump({'CFBundleIdentifier': APP_ID, 'CFBundleShortVersionString': '1.0.3'}, f)
+            (stage / 'new_file.txt').write_text('new')
+
+            plan_path = staging_dir / 'plan.json'
+            plan_path.write_text(json.dumps({
+                'target': str(target),
+                'stage': str(stage),
+                'pid': 999999
+            }))
+
+            with patch('os.kill', side_effect=ProcessLookupError), \
+                 patch('subprocess.Popen') as mock_popen, \
+                 patch('sys.executable', str(target / 'Contents' / 'MacOS' / 'VXDevSync')):
+                apply_mac_update(str(plan_path))
+
+            self.assertTrue((target / 'new_file.txt').is_file())
+            self.assertEqual((target / 'new_file.txt').read_text(), 'new')
+            self.assertFalse(plan_path.exists())
+            self.assertFalse(stage.parent.exists()) # staging cleaned up
+            mock_popen.assert_called_once_with(['/usr/bin/open', '-n', str(target.resolve())], close_fds=True)
+
+    def test_bridge_api_install_update_delayed_exit(self):
+        from unittest.mock import patch, MagicMock
+        from src.bridge_api import BridgeApi
+        window_mock = MagicMock()
+        api = BridgeApi(config_manager=MagicMock(), window_getter=lambda: window_mock)
+        updater_mock = MagicMock()
+        updater_mock.install.return_value = {'success': True, 'restart_required': True}
+        api._updater = updater_mock
+
+        with patch('threading.Thread') as mock_thread_cls:
+            res = api.install_update()
+            self.assertTrue(res['success'])
+            mock_thread_cls.assert_called_once()
+            # verify thread is daemon
+            _, kwargs = mock_thread_cls.call_args
+            self.assertTrue(kwargs.get('daemon'))

@@ -161,31 +161,65 @@ def swap_mac_bundle(stage, target):
 
 def apply_mac_update(plan_path):
     """Separate frozen helper; rollback retains the old app on install failure."""
-    plan_path=Path(plan_path)
-    plan=json.loads(plan_path.read_text(encoding='utf-8'))
-    executable=Path(sys.executable).resolve()
-    current=next((p for p in executable.parents if p.suffix=='.app'),None)
-    target=Path(plan['target']).resolve();stage=Path(plan['stage']).resolve()
-    if current is None or target != current or target.name!='VXDevSync.app':
-        raise ValueError('Đích cài đặt không phải bundle đang chạy')
-    if stage.parent.parent != target.parent or not stage.parent.name.startswith('.vxdevsync_update_') or stage.name!='VXDevSync.app':
-        raise ValueError('Staging không hợp lệ')
-    with (stage/'Contents/Info.plist').open('rb') as f:
-        info=plistlib.load(f)
-    if info.get('CFBundleIdentifier')!=APP_ID or semver(info['CFBundleShortVersionString']) <= semver(VERSION):
-        raise ValueError('Không cho phép rollback hoặc bundle khác')
-    pid=int(plan['pid'])
-    if pid <= 0 or pid == os.getpid():
-        raise ValueError('PID không hợp lệ')
-    for _ in range(300):
-        try:os.kill(pid,0)
-        except ProcessLookupError:break
-        time.sleep(0.1)
-    else:raise TimeoutError('Ứng dụng chưa đóng; chưa thay bundle')
-    swap_mac_bundle(stage,target)
-    # Keep backup for recovery, never delete the previous working bundle here.
-    subprocess.Popen(['/usr/bin/open', str(target)], close_fds=True)
-    plan_path.unlink(missing_ok=True)
+    log_file = Path('/tmp/vxdevsync_updater.log')
+    def _log(msg):
+        try:
+            with log_file.open('a', encoding='utf-8') as lf:
+                lf.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+        except Exception:
+            pass
+
+    _log(f"apply_mac_update bat dau voi plan_path={plan_path}")
+    try:
+        plan_path = Path(plan_path)
+        plan = json.loads(plan_path.read_text(encoding='utf-8'))
+        executable = Path(sys.executable).resolve()
+        current = next((p for p in executable.parents if p.suffix == '.app'), None)
+        target = Path(plan['target']).resolve()
+        stage = Path(plan['stage']).resolve()
+        _log(f"current={current}, target={target}, stage={stage}")
+        if current is None or target != current or target.name != 'VXDevSync.app':
+            raise ValueError('Đích cài đặt không phải bundle đang chạy')
+        if stage.parent.parent != target.parent or not stage.parent.name.startswith('.vxdevsync_update_') or stage.name != 'VXDevSync.app':
+            raise ValueError('Staging không hợp lệ')
+        with (stage / 'Contents/Info.plist').open('rb') as f:
+            info = plistlib.load(f)
+
+        target_plist = target / 'Contents/Info.plist'
+        if target_plist.is_file():
+            with target_plist.open('rb') as f:
+                target_info = plistlib.load(f)
+            base_ver = target_info.get('CFBundleShortVersionString', VERSION)
+        else:
+            base_ver = VERSION
+
+        if info.get('CFBundleIdentifier') != APP_ID or semver(info['CFBundleShortVersionString']) <= semver(base_ver):
+            raise ValueError(f"Không cho phép rollback hoặc bundle khác (stage={info.get('CFBundleShortVersionString')}, base={base_ver})")
+        pid = int(plan['pid'])
+        if pid <= 0 or pid == os.getpid():
+            raise ValueError('PID không hợp lệ')
+        _log(f"Dang cho PID cha {pid} thoat...")
+        for _ in range(300):
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                _log(f"PID cha {pid} da thoat.")
+                break
+            time.sleep(0.1)
+        else:
+            raise TimeoutError('Ứng dụng chưa đóng; chưa thay bundle')
+        _log("Tien hanh hoan doi bundle...")
+        backup = swap_mac_bundle(stage, target)
+        _log(f"Da hoan doi bundle thanh cong. Backup: {backup}. Khoi chay phien ban moi...")
+        subprocess.Popen(['/usr/bin/open', '-n', str(target)], close_fds=True)
+        plan_path.unlink(missing_ok=True)
+        shutil.rmtree(stage.parent, ignore_errors=True)
+        _log("Cap nhat hoan tat thanh cong.")
+    except Exception as error:
+        _log(f"Loi apply_mac_update: {error}")
+        import traceback
+        _log(traceback.format_exc())
+        raise
 
 class AppUpdater:
     def __init__(self):
@@ -213,9 +247,10 @@ class AppUpdater:
         key=platform_key();entry=self.pending['platforms'].get(key)
         if not entry:raise ValueError('Release chưa có gói cho nền tảng này')
         folder=Path(tempfile.mkdtemp(prefix='vxdevsync_download_'));package=folder/('setup.exe' if key=='windows_x64' else 'app.tar.gz')
+        staging=None
         context=get_ssl_context()
         try:
-            with urlopen(entry['url'],timeout=30,context=context) as response,package.open('xb') as output:
+            with urlopen(entry['url'],timeout=60,context=context) as response,package.open('xb') as output:
                 size=0
                 while True:
                     block=response.read(65536)
@@ -236,7 +271,10 @@ class AppUpdater:
                 plan=staging/'plan.json';plan.write_text(json.dumps({'target':str(app),'stage':str(staged_app),'pid':os.getpid()}),encoding='utf-8');plan.chmod(0o600)
                 subprocess.Popen([sys.executable,'--apply-update',str(plan)],start_new_session=True,close_fds=True)
             self.install_dispatched=True
+            shutil.rmtree(folder,ignore_errors=True)
             return {'success':True,'restart_required':True}
         except BaseException:
             shutil.rmtree(folder,ignore_errors=True)
+            if staging is not None:
+                shutil.rmtree(staging,ignore_errors=True)
             raise

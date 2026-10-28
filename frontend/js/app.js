@@ -1276,12 +1276,26 @@ function renderSettingsTabContent(tabKey) {
       }
       checkButton.disabled = true;
       installButton.disabled = true;
-      status.textContent = "Đang tải, xác minh và cài cập nhật...";
+      status.textContent = "Đang tải gói cập nhật, xác thực chữ ký và giải nén (có thể mất 15-30 giây)...";
       try {
-        const result = await window.pywebview.api.install_update();
-        if (!result.success) status.textContent = result.error;
-      } catch (error) { status.textContent = "Cập nhật thất bại; bạn có thể thử lại."; }
-      finally { checkButton.disabled = false; installButton.disabled = false; }
+        const updatePromise = window.pywebview.api.install_update();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Quá thời gian chờ tải cập nhật (120s)")), 120000)
+        );
+        const result = await Promise.race([updatePromise, timeoutPromise]);
+        if (result && result.success) {
+          status.textContent = "Cập nhật thành công. Ứng dụng đang khởi động lại...";
+          showToast("Cập nhật thành công. Đang khởi động lại...", "info");
+        } else {
+          status.textContent = result?.error || "Cập nhật thất bại; bạn có thể thử lại.";
+          checkButton.disabled = false;
+          installButton.disabled = false;
+        }
+      } catch (error) {
+        status.textContent = "Cập nhật thất bại: " + (error?.message || "Lỗi kết nối; hãy thử lại.");
+        checkButton.disabled = false;
+        installButton.disabled = false;
+      }
     };
   } else if (tabKey === "about") {
     area.innerHTML = `

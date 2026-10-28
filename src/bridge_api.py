@@ -479,7 +479,25 @@ class BridgeApi:
             if window is None:
                 return {"success": False, "error": "Không có cửa sổ để khởi động lại"}
             result = self._updater.install()
-            window.destroy()
+            if not result.get("success"):
+                return result
+
+            # Lên lịch đóng window và thoát tiến trình sạch sẽ sau 0.8 giây
+            # để đảm bảo WebView nhận được RPC response và cập nhật giao diện.
+            def _delayed_exit():
+                import time
+                import os
+                time.sleep(0.8)
+                try:
+                    if window:
+                        window.destroy()
+                except Exception:
+                    pass
+                os._exit(0)
+
+            import threading
+            threading.Thread(target=_delayed_exit, daemon=True).start()
+
             return result
         except Exception as error:
             return {"success": False, "error": "Cập nhật thất bại: " + str(error)}
