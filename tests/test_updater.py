@@ -103,15 +103,18 @@ class UpdaterTests(unittest.TestCase):
                 plistlib.dump({'CFBundleIdentifier': APP_ID, 'CFBundleShortVersionString': '1.0.3'}, f)
             (stage / 'new_file.txt').write_text('new')
 
+            ready_file = staging_dir / 'ready.flag'
             plan_path = staging_dir / 'plan.json'
             plan_path.write_text(json.dumps({
                 'target': str(target),
                 'stage': str(stage),
-                'pid': 999999
+                'pid': 999999,
+                'ready_file': str(ready_file)
             }))
 
+            run_mock = MagicMock(returncode=0)
             with patch('os.kill', side_effect=ProcessLookupError), \
-                 patch('subprocess.Popen') as mock_popen, \
+                 patch('subprocess.run', return_value=run_mock) as mock_run, \
                  patch('sys.executable', str(target / 'Contents' / 'MacOS' / 'VXDevSync')):
                 apply_mac_update(str(plan_path))
 
@@ -119,9 +122,9 @@ class UpdaterTests(unittest.TestCase):
             self.assertEqual((target / 'new_file.txt').read_text(), 'new')
             self.assertFalse(plan_path.exists())
             self.assertFalse(stage.parent.exists()) # staging cleaned up
-            mock_popen.assert_called_once_with(['/usr/bin/open', '-n', str(target.resolve())], close_fds=True)
+            mock_run.assert_called_once_with(['/usr/bin/open', '-n', str(target.resolve())], capture_output=True, timeout=15)
 
-    def test_bridge_api_install_update_delayed_exit(self):
+    def test_bridge_api_install_update_delayed_exit_and_blocks_mutations(self):
         from unittest.mock import patch, MagicMock
         from src.bridge_api import BridgeApi
         window_mock = MagicMock()
@@ -133,7 +136,14 @@ class UpdaterTests(unittest.TestCase):
         with patch('threading.Thread') as mock_thread_cls:
             res = api.install_update()
             self.assertTrue(res['success'])
-            mock_thread_cls.assert_called_once()
-            # verify thread is daemon
-            _, kwargs = mock_thread_cls.call_args
-            self.assertTrue(kwargs.get('daemon'))
+            self.assertTrue(api._shutdown_pending)
+            self.assertGreaterEqual(mock_thread_cls.call_count, 1)
+            # verify threads are daemon
+            for call in mock_thread_cls.call_args_list:
+                _, kwargs = call
+                self.assertTrue(kwargs.get('daemon'))
+
+        # Verify new mutation is blocked when shutdown is pending
+        mutation_res = api.save_config({"general": {"default_tab": "git_sync"}})
+        self.assertFalse(mutation_res['success'])
+        self.assertIn("khởi động lại", mutation_res['error'])

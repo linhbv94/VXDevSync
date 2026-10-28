@@ -198,6 +198,13 @@ def apply_mac_update(plan_path):
         pid = int(plan['pid'])
         if pid <= 0 or pid == os.getpid():
             raise ValueError('PID không hợp lệ')
+
+        # Thong bao cho tien trinh me biet helper da khoi dong va xac thuc bundle thanh cong
+        ready_file = Path(plan['ready_file']) if plan.get('ready_file') else None
+        if ready_file:
+            ready_file.write_text('ready', encoding='utf-8')
+            _log(f"Da tao ready_file xac nhan: {ready_file}")
+
         _log(f"Dang cho PID cha {pid} thoat...")
         for _ in range(300):
             try:
@@ -211,7 +218,10 @@ def apply_mac_update(plan_path):
         _log("Tien hanh hoan doi bundle...")
         backup = swap_mac_bundle(stage, target)
         _log(f"Da hoan doi bundle thanh cong. Backup: {backup}. Khoi chay phien ban moi...")
-        subprocess.Popen(['/usr/bin/open', '-n', str(target)], close_fds=True)
+        open_res = subprocess.run(['/usr/bin/open', '-n', str(target)], capture_output=True, timeout=15)
+        if open_res.returncode != 0:
+            err_msg = open_res.stderr.decode('utf-8', errors='replace')
+            _log(f"Canh bao: /usr/bin/open tra ve ma loi {open_res.returncode}: {err_msg}")
         plan_path.unlink(missing_ok=True)
         shutil.rmtree(stage.parent, ignore_errors=True)
         _log("Cap nhat hoan tat thanh cong.")
@@ -250,9 +260,12 @@ class AppUpdater:
         staging=None
         context=get_ssl_context()
         try:
-            with urlopen(entry['url'],timeout=60,context=context) as response,package.open('xb') as output:
+            download_deadline = time.time() + 90
+            with urlopen(entry['url'],timeout=30,context=context) as response,package.open('xb') as output:
                 size=0
                 while True:
+                    if time.time() > download_deadline:
+                        raise TimeoutError('Quá thời gian tải gói cập nhật (tổng thời gian vượt quá 90 giây)')
                     block=response.read(65536)
                     if not block:break
                     size+=len(block)
@@ -268,10 +281,28 @@ class AppUpdater:
                 staging=Path(tempfile.mkdtemp(prefix='.vxdevsync_update_',dir=app.parent))
                 staged_app=extract_mac_archive(package,staging,self.pending['version'])
                 subprocess.run(['codesign','--verify','--deep','--strict',str(staged_app)],check=True,capture_output=True,timeout=30)
-                plan=staging/'plan.json';plan.write_text(json.dumps({'target':str(app),'stage':str(staged_app),'pid':os.getpid()}),encoding='utf-8');plan.chmod(0o600)
-                subprocess.Popen([sys.executable,'--apply-update',str(plan)],start_new_session=True,close_fds=True)
+                ready_file = staging / 'ready.flag'
+                plan=staging/'plan.json'
+                plan.write_text(json.dumps({
+                    'target': str(app),
+                    'stage': str(staged_app),
+                    'pid': os.getpid(),
+                    'ready_file': str(ready_file)
+                }), encoding='utf-8')
+                plan.chmod(0o600)
+                helper_proc = subprocess.Popen([sys.executable,'--apply-update',str(plan)],start_new_session=True,close_fds=True)
+                for _ in range(50):
+                    if ready_file.is_file():
+                        break
+                    if helper_proc.poll() is not None:
+                        raise RuntimeError(f"Trình cập nhật thoát bất thường với mã {helper_proc.returncode}")
+                    time.sleep(0.1)
+                else:
+                    helper_proc.terminate()
+                    raise TimeoutError("Trình cài đặt cập nhật không khởi động kịp thời (timeout 5s)")
             self.install_dispatched=True
-            shutil.rmtree(folder,ignore_errors=True)
+            if key != 'windows_x64':
+                shutil.rmtree(folder,ignore_errors=True)
             return {'success':True,'restart_required':True}
         except BaseException:
             shutil.rmtree(folder,ignore_errors=True)

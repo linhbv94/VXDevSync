@@ -1280,12 +1280,12 @@ function renderSettingsTabContent(tabKey) {
       try {
         const updatePromise = window.pywebview.api.install_update();
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Quá thời gian chờ tải cập nhật (120s)")), 120000)
+          setTimeout(() => reject(new Error("Quá thời gian chờ phản hồi cập nhật (120s)")), 120000)
         );
         const result = await Promise.race([updatePromise, timeoutPromise]);
         if (result && result.success) {
-          status.textContent = "Cập nhật thành công. Ứng dụng đang khởi động lại...";
-          showToast("Cập nhật thành công. Đang khởi động lại...", "info");
+          status.textContent = "Đã chuẩn bị cập nhật thành công. Ứng dụng đang khởi động lại...";
+          showToast("Đã chuẩn bị cập nhật thành công. Đang khởi động lại...", "info");
         } else {
           status.textContent = result?.error || "Cập nhật thất bại; bạn có thể thử lại.";
           checkButton.disabled = false;

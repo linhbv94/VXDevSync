@@ -15,9 +15,13 @@ from src.adapter_engine import AdapterEngine
 def exclusive_mutation(function):
     @wraps(function)
     def call(self, *args, **kwargs):
+        if getattr(self, '_shutdown_pending', False):
+            return {"success": False, "error": "Ứng dụng đang chuẩn bị khởi động lại để cập nhật; không thể thực hiện thao tác mới"}
         if not self._mutation_lock.acquire(blocking=False):
             return {"success": False, "error": "Đang có thao tác khác; hãy chờ hoàn tất"}
         try:
+            if getattr(self, '_shutdown_pending', False):
+                return {"success": False, "error": "Ứng dụng đang chuẩn bị khởi động lại để cập nhật"}
             return function(self, *args, **kwargs)
         except (ValueError, OSError) as error:
             return {"success": False, "error": str(error)}
@@ -30,6 +34,7 @@ class BridgeApi:
 
     def __init__(self, config_manager: ConfigManager, window_getter=None):
         self._mutation_lock = threading.Lock()
+        self._shutdown_pending = False
         self._updater = None
         self._config_manager = config_manager
         self._window_getter = window_getter
@@ -482,11 +487,22 @@ class BridgeApi:
             if not result.get("success"):
                 return result
 
+            # Chặn vĩnh viễn mọi thao tác ghi/mutation mới từ thời điểm này
+            self._shutdown_pending = True
+
             # Lên lịch đóng window và thoát tiến trình sạch sẽ sau 0.8 giây
             # để đảm bảo WebView nhận được RPC response và cập nhật giao diện.
             def _delayed_exit():
                 import time
                 import os
+
+                # Watchdog timer độc lập: Sau 2.5s cưỡng chế thoát nếu Cocoa runloop bị treo
+                def _watchdog():
+                    time.sleep(2.5)
+                    os._exit(0)
+
+                threading.Thread(target=_watchdog, daemon=True).start()
+
                 time.sleep(0.8)
                 try:
                     if window:
