@@ -14,6 +14,7 @@ And File cấu hình config.json chưa tồn tại trong thư mục Application 
 When Cửa sổ ứng dụng hiển thị hoàn tất
 Then Ứng dụng phải tự động mở Onboarding Modal (Welcome Wizard)
 And Tự động gợi ý đường dẫn Workspace Root phù hợp (dựa trên thư mục người dùng hoặc cwd)
+And Cho phép người dùng cấu hình Central Skills Library và nhập Link Git của Skills Library tổng (hỗ trợ tự nhận diện khi duyệt thư mục)
 And Tự động phát hiện các Agent cục bộ đã cài đặt (Antigravity tại ~/.gemini/config, Codex tại ~/.codex)
 And Cho phép người dùng bấm "Bắt đầu làm việc" để lưu cấu hình
 And Sau khi lưu, ứng dụng phải chuyển ngay vào tab Git Multi-Sync và tự động kích hoạt quét
@@ -38,7 +39,7 @@ And Toàn bộ danh sách repositories tìm thấy phải được hiển thị 
 Given Người dùng đang ở Workspace "/Users/vic/_Work"
 When Người dùng hover chuột vào nút Open Folder trên Titlebar
 Then Một dropdown phải hiển thị tối đa 5 thư mục mở gần nhất, xếp theo thứ tự mới nhất ở trên
-When Người dùng click vào một thư mục trong danh sách gần đây (ví dụ: "/Users/vic/_Work/zTools")
+When Người dùng click vào một thư mục trong danh sách gần đây (ví dụ: "/Users/vic/_Work/VXUtilities")
 Then Đường dẫn scan_path trong cấu hình phải được cập nhật thành thư mục mới
 And Ứng dụng phải kích hoạt ngay lượt quét mới cho thư mục vừa chọn
 And Thư mục vừa chọn phải được đưa lên vị trí số 1 trong danh sách recent_paths
@@ -190,7 +191,7 @@ And Bảng Skills Inventory trên Máy B cập nhật trạng thái đã xóa, k
 
 ---
 
-## 7. Checklist Tuân thủ Chuẩn zTools Desktop UI
+## 7. Checklist Tuân thủ Chuẩn VXUtilities Desktop UI
 
 - [ ] **Thanh tiêu đề (Titlebar):** Chiều cao đúng 32px, phông system 12px weight 600, icon 16px gap 6px.
 - [ ] **Nút Traffic Lights (macOS):** Đúng đường kính hiển thị 12pt (chuẩn AppKit SDK 15.5 compatibility), khoảng cách tâm 20pt native, căn giữa toolbar 15.5pt, ổn định qua focus/resize.

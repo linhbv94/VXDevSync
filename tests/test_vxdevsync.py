@@ -237,6 +237,40 @@ class TestVXDevSync(unittest.TestCase):
                 self.assertFalse(res["success"])
                 self.assertIn(expected_hint, res["message"])
 
+    def test_get_git_remote_url(self):
+        # 1. Thư mục không tồn tại hoặc không phải git repo
+        non_git = self.test_path / "non_git_dir"
+        non_git.mkdir(parents=True, exist_ok=True)
+        res = self.api.get_git_remote_url(str(non_git))
+        self.assertFalse(res["success"])
+        self.assertEqual(res["url"], "")
+
+        # 2. Thư mục Git repo có remote origin
+        git_dir = self.test_path / "git_with_remote"
+        git_dir.mkdir(parents=True, exist_ok=True)
+        self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=git_dir)
+        expected_url = "https://github.com/test-user/my_skills_lib.git"
+        self.api._git_engine.run_cmd(["remote", "add", "origin", expected_url], cwd=git_dir)
+
+        res = self.api.get_git_remote_url(str(git_dir))
+        self.assertTrue(res["success"])
+        self.assertEqual(res["url"], expected_url)
+
+    def test_save_config_with_skills_git_repo(self):
+        # Kiểm tra lưu cấu hình skills_lib và git_repo đồng bộ từ GUI / Onboarding
+        test_lib = str(self.test_path / "central_skills")
+        test_repo = "https://github.com/my-org/central-skills.git"
+        res = self.api.save_config({
+            "skills_sync": {
+                "skills_lib": test_lib,
+                "git_repo": test_repo
+            }
+        })
+        self.assertTrue(res["success"])
+        cfg = self.api._config_manager.config
+        self.assertEqual(cfg.skills_sync.skills_lib, test_lib)
+        self.assertEqual(cfg.skills_sync.git_repo, test_repo)
+
 
 if __name__ == "__main__":
     unittest.main()

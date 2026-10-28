@@ -26,7 +26,7 @@ File cấu hình duy nhất được lưu tại:
     "scan_path": "/Users/vic/_Work",
     "recent_paths": [
       "/Users/vic/_Work",
-      "/Users/vic/_Work/zTools"
+      "/Users/vic/_Work/VXUtilities"
     ],
     "ignore_list": [
       "node_modules",

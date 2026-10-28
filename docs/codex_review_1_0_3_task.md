@@ -34,5 +34,5 @@ VXDevSync vừa được nâng cấp bổ sung tính năng thao tác hàng loạ
 Rà soát chỉ đọc toàn bộ các thay đổi trên:
 1. Độ an toàn thực thi lệnh Git trong `git_engine.py`, tính chính xác của các error hints và xử lý timeout/error formatting.
 2. Tính bảo mật trong `frontend/js/app.js`: xác thực không có nguy cơ XSS / HTML injection khi hiển thị tên repo, lệnh Git, error messages hay raw terminal log.
-3. Trải nghiệm người dùng và tính nhất quán với zTools UI standards (bố cục, modal, badge, copy clipboard, retry flow).
+3. Trải nghiệm người dùng và tính nhất quán với VXUtilities UI standards (bố cục, modal, badge, copy clipboard, retry flow).
 4. Đánh giá tính sẵn sàng để release v1.0.3.

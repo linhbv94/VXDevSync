@@ -8,7 +8,7 @@ Tài liệu này đặc tả kiến trúc tổng thể, mô hình kỹ thuật v
 ## 1. Bối cảnh & Mục tiêu Sản phẩm
 
 ### A. Vấn đề thực tế từ hai công cụ CLI
-Trong quy trình làm việc thực tế với AI coding agents (`Antigravity`, `Codex`, `Claude Code`) và nhiều dự án Git cục bộ (`zTools` workspaces):
+Trong quy trình làm việc thực tế với AI coding agents (`Antigravity`, `Codex`, `Claude Code`) và nhiều dự án Git cục bộ (`VXUtilities` workspaces):
 1. **`zcli_gitsync`:**
    - Hoạt động xuất sắc khi đặt ngay tại thư mục root của workspace: quét nhanh toàn bộ repos, chỉ cần gõ `1` và `Enter` là đồng bộ tự động.
    - **Hạn chế:** Không có giao diện trực quan; khi đóng gói thành ứng dụng macOS `.app` nằm trong `/Applications`, công cụ mất đi vị trí tương đối với workspace; không hỗ trợ chọn/bỏ chọn từng repo theo ý muốn (chỉ có sync all hoặc push/pull all); việc cấu hình loại trừ (ignore) trên CLI phải gõ tay từng dòng.
@@ -23,7 +23,7 @@ Trong quy trình làm việc thực tế với AI coding agents (`Antigravity`, 
   - Quản lý danh sách repository với bảng dữ liệu tương tác: Checkbox chọn từng repo, bộ lọc trạng thái, quick action bar.
   - Quản lý danh mục Skills dạng Inventory ma trận: Trực quan hóa vị trí tồn tại của skill trên từng Agent, hỗ trợ xóa triệt để (Cascade Delete) kèm cơ chế chặn hồi sinh (Tombstone Manifest).
   - Gạt toggle bật/tắt từng AI Agent trực tiếp trên giao diện trong 1 click.
-- **Chuẩn hóa giao diện zTools:** Kế thừa trọn vẹn quy chuẩn thiết kế [desktop_ui_standards.md](../../.agents/desktop_ui_standards.md) và [master_theme.md](../../_summary/master_theme.md).
+- **Chuẩn hóa giao diện VXUtilities:** Kế thừa trọn vẹn quy chuẩn thiết kế [desktop_ui_standards.md](../../.agents/desktop_ui_standards.md) và [master_theme.md](../../_summary/master_theme.md).
 
 ---
 
@@ -94,7 +94,7 @@ Hệ thống tài liệu đặc tả của VXDevSync được phân rã chuẩn 
 1. [00_system_overview.md](00_system_overview.md) *(Tài liệu này)*: Tổng quan hệ thống, kiến trúc tổng thể, mô hình giải pháp.
 2. [01_business_process.md](01_business_process.md): Sơ đồ quy trình nghiệp vụ tổng thể (Onboarding, Git Sync, Skills Sync, Cascade Delete).
 3. [02_feature_flow.md](02_feature_flow.md): Đặc tả chi tiết các luồng tính năng, logic chuyển đổi trạng thái và xử lý lỗi.
-4. [03_ui_wireframe.md](03_ui_wireframe.md): Thiết kế giao diện chi tiết, wireframe ASCII/layout, tokens UI theo chuẩn zTools.
+4. [03_ui_wireframe.md](03_ui_wireframe.md): Thiết kế giao diện chi tiết, wireframe ASCII/layout, tokens UI theo chuẩn VXUtilities.
 5. [04_api_data.md](04_api_data.md): Cấu trúc dữ liệu `config.json` hợp nhất, schema nội bộ và hợp đồng Desktop Bridge API.
 6. [05_qa_acceptance.md](05_qa_acceptance.md): Bộ tiêu chuẩn nghiệm thu (Gherkin Scenarios), ma trận kiểm thử và danh mục checklist.
 

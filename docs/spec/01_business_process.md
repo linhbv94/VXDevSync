@@ -24,10 +24,11 @@ flowchart TD
     subgraph Step2 ["Bước 2: Thiết lập Skills Sync (Tùy chọn)"]
         SetMaxDepth --> DetectAgents["Tự động quét đường dẫn Agents cục bộ"]
         DetectAgents --> ShowAgentToggles["Hiển thị checkbox các Agent tìm thấy (Anti, Codex, Claude)"]
-        ShowAgentToggles --> PickSkillsLib["Chọn Central Skills Library (nếu có, hoặc tạo mặc định)"]
+        ShowAgentToggles --> PickSkillsLib["Chọn Central Skills Library (Local Directory)"]
+        PickSkillsLib --> InputGitRepo["Nhập Git Remote URL của Skills Lib tổng (hỗ trợ tự nhận diện)"]
     end
 
-    PickSkillsLib --> SaveConfig["Tạo config.json hợp nhất chuẩn hệ thống"]
+    InputGitRepo --> SaveConfig["Tạo config.json hợp nhất chuẩn hệ thống"]
     SaveConfig --> AutoScanGit["Chuyển vào Dashboard Git Sync & Quét tự động"]
     AutoScanGit --> Done(["Sẵn sàng làm việc"])
 ```

@@ -373,9 +373,20 @@ function setupEventListeners() {
     }
   });
   document.getElementById("btn-onboard-pick-skills").addEventListener("click", async () => {
-    const res = await window.pywebview.api.pick_folder();
+    const currentVal = document.getElementById("onboard-skills-lib").value;
+    const res = await window.pywebview.api.pick_folder(currentVal);
     if (!res.canceled && res.path) {
       document.getElementById("onboard-skills-lib").value = res.path;
+      const repoInput = document.getElementById("onboard-skills-repo");
+      if (!repoInput.value.trim() && window.pywebview.api.get_git_remote_url) {
+        try {
+          const remoteRes = await window.pywebview.api.get_git_remote_url(res.path);
+          if (remoteRes && remoteRes.success && remoteRes.url) {
+            repoInput.value = remoteRes.url;
+            showToast("Đã tự động nhận diện Git Remote URL từ thư mục", "info");
+          }
+        } catch (_) {}
+      }
     }
   });
   document.getElementById("btn-onboard-finish").addEventListener("click", finishOnboarding);
@@ -1232,6 +1243,16 @@ function renderSettingsTabContent(tabKey) {
       const res = await window.pywebview.api.pick_folder(cfg.skills_sync.skills_lib);
       if (!res.canceled && res.path) {
         document.getElementById("setting-skills-lib").value = res.path;
+        const repoInput = document.getElementById("setting-git-repo");
+        if (repoInput && !repoInput.value.trim() && window.pywebview.api.get_git_remote_url) {
+          try {
+            const remoteRes = await window.pywebview.api.get_git_remote_url(res.path);
+            if (remoteRes && remoteRes.success && remoteRes.url) {
+              repoInput.value = remoteRes.url;
+              showToast("Đã tự động nhận diện Git Remote URL từ thư mục", "info");
+            }
+          } catch (_) {}
+        }
       }
     });
 
@@ -1377,26 +1398,35 @@ function resetSettingsDefault() {
 function openOnboardingModal() {
   document.getElementById("modal-onboarding").classList.add("active");
   document.getElementById("onboard-scan-path").value = state.config.git_sync.scan_path || "";
+  document.getElementById("onboard-skills-lib").value = state.config.skills_sync.skills_lib || "";
+  document.getElementById("onboard-skills-repo").value = state.config.skills_sync.git_repo || "";
 }
 
 async function finishOnboarding() {
   const scanPath = document.getElementById("onboard-scan-path").value.trim();
   const skillsLib = document.getElementById("onboard-skills-lib").value.trim();
+  const skillsRepo = document.getElementById("onboard-skills-repo").value.trim();
 
   if (scanPath) state.config.git_sync.scan_path = scanPath;
   if (skillsLib) state.config.skills_sync.skills_lib = skillsLib;
+  if (skillsRepo !== undefined) state.config.skills_sync.git_repo = skillsRepo;
 
   try {
-    await window.pywebview.api.save_config({
+    const res = await window.pywebview.api.save_config({
       git_sync: state.config.git_sync,
       skills_sync: state.config.skills_sync
     });
-    document.getElementById("modal-onboarding").classList.remove("active");
-    updateUIFromConfig();
-    triggerGitScan();
-    showToast("Thiết lập ban đầu hoàn tất!", "success");
+    if (res && res.success) {
+      document.getElementById("modal-onboarding").classList.remove("active");
+      updateUIFromConfig();
+      triggerGitScan();
+      showToast("Thiết lập ban đầu hoàn tất!", "success");
+    } else {
+      showToast(res?.error || "Không thể lưu cấu hình khởi tạo", "danger");
+    }
   } catch (err) {
     console.error(err);
+    showToast("Không thể lưu cấu hình khởi tạo", "danger");
   }
 }
 

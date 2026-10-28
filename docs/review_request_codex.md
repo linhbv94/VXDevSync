@@ -8,7 +8,7 @@
 
 ## 1. Bối cảnh & Mục tiêu
 
-Dự án `vxdevsync/` là ứng dụng Desktop GUI (Python Webview + HTML/CSS/JS thuần theo chuẩn zTools UI) hợp nhất hai công cụ dòng lệnh:
+Dự án `vxdevsync/` là ứng dụng Desktop GUI (Python Webview + HTML/CSS/JS thuần theo chuẩn VXUtilities UI) hợp nhất hai công cụ dòng lệnh:
 1. `zcli_gitsync`: Quét và đồng bộ hàng loạt repo Git trong workspace.
 2. `zcli_skillssync`: Quét và đồng bộ Skills + Rules (`AGENTS.md` ↔ `CLAUDE.md`) giữa Central Library và các AI Agents (Antigravity, Codex, Claude Code).
 
@@ -30,8 +30,8 @@ Dự án `vxdevsync/` là ứng dụng Desktop GUI (Python Webview + HTML/CSS/JS
 - `src/adapter_engine.py`: Chuyển đổi và phân bổ rules `AGENTS.md` ↔ `CLAUDE.md`.
 
 ### B. Mã nguồn Frontend UI (`vxdevsync/frontend/`)
-- `frontend/index.html`: Cấu trúc 2 tab, Titlebar 32px chuẩn zTools, Modal Settings 2 nhóm, Modal Cascade Delete, Modal Onboarding.
-- `frontend/css/master_theme.css` & `frontend/css/style.css`: Theme Dark `#0f1117`, Electric Cyan, tokens zTools.
+- `frontend/index.html`: Cấu trúc 2 tab, Titlebar 32px chuẩn VXUtilities, Modal Settings 2 nhóm, Modal Cascade Delete, Modal Onboarding.
+- `frontend/css/master_theme.css` & `frontend/css/style.css`: Theme Dark `#0f1117`, Electric Cyan, tokens VXUtilities.
 - `frontend/js/app.js`: Tương tác UI, Row-click selection, filter repos, agent toggles, toast notifications.
 
 ### C. Bộ Kiểm thử Đã chạy PASS (`vxdevsync/tests/test_vxdevsync.py`)

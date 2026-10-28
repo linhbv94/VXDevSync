@@ -63,7 +63,7 @@ def main():
 
     url = frontend_path.resolve().as_uri()
     
-    # Thiết lập kích thước theo chuẩn zTools UI
+    # Thiết lập kích thước theo chuẩn VXUtilities UI
     window = webview.create_window(
         title="VXDevSync",
         url=url,

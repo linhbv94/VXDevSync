@@ -133,6 +133,19 @@ class BridgeApi:
                 return {"canceled": False, "path": selected}
         return {"canceled": True, "path": ""}
 
+    def get_git_remote_url(self, folder_path: str) -> Dict[str, Any]:
+        """Lấy Git Remote URL origin của một thư mục nếu có."""
+        try:
+            p = Path(folder_path).expanduser().resolve()
+            if not p.is_dir() or not (p / ".git").exists():
+                return {"success": False, "url": ""}
+            code, url, _ = self._git_engine.run_cmd(["remote", "get-url", "origin"], cwd=p)
+            if code == 0 and url.strip():
+                return {"success": True, "url": url.strip()}
+            return {"success": False, "url": ""}
+        except Exception:
+            return {"success": False, "url": ""}
+
     def scan_git_workspace(self, scan_path: Optional[str] = None, max_depth: Optional[int] = None) -> Dict[str, Any]:
         """Quét và phân tích trạng thái toàn bộ repositories trong workspace."""
         cfg = self._config_manager.config

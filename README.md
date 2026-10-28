@@ -1,6 +1,6 @@
 # VXDevSync (Desktop GUI)
 
-Ứng dụng Desktop hợp nhất hai công cụ cốt lõi trong hệ sinh thái zTools:
+Ứng dụng Desktop hợp nhất hai công cụ cốt lõi trong hệ sinh thái VXUtilities:
 1. **Git Multi-Sync:** Quét và quản lý đồng bộ hàng loạt kho lưu trữ Git cục bộ với remote (GitHub, GitLab), hỗ trợ đa chọn dòng (Row-click Selection), lọc dirty/ahead/behind và Smart Sync 1-click.
 2. **Skills Auto-Sync:** Quản lý và đồng bộ kỹ năng (Skills Library) và quy tắc đạo đức (`AGENTS.md` ↔ `CLAUDE.md`) giữa Central Library và các AI Agents (Antigravity, Codex, Claude Code), xử lý triệt để bug hồi sinh kỹ năng (Resurrection Bug) qua Cascade Delete và Tombstone Manifest.
 
@@ -21,15 +21,15 @@ Script sẽ tự động kiểm tra/tạo môi trường ảo `.venv`, cài đ�
 
 - **Cấu hình chung:** Lưu tại `~/Library/Application Support/VXDevSync/config.json` (macOS) hoặc `%APPDATA%\VXDevSync\config.json` (Windows).
 - **Backend:** Python 3.9+ (`pywebview` Desktop Native WebKit/Cocoa).
-  - `src/main.py`: Entry point khởi tạo cửa sổ native window 1040×680 chuẩn zTools.
+  - `src/main.py`: Entry point khởi tạo cửa sổ native window 1040×680 chuẩn VXUtilities.
   - `src/bridge_api.py`: API Bridge hai chiều giữa JavaScript và Python.
   - `src/config_manager.py`: Quản lý cấu hình tập trung, recent paths, ignore list và tombstones.
   - `src/git_engine.py`: Quét đệ quy, phân tích commit offset (+ahead / -behind) và thực thi pull/push bất đồng bộ.
   - `src/skills_engine.py`: Quét ma trận skills, phân bổ downstream, thu thập upstream và cascade delete.
   - `src/adapter_engine.py`: Chuẩn hóa quy tắc 2 chiều giữa `AGENTS.md` và `CLAUDE.md`.
-- **Frontend:** HTML5, CSS3 Tokens chuẩn zTools Dark (`#0f1117`), JavaScript thuần ES6+.
+- **Frontend:** HTML5, CSS3 Tokens chuẩn VXUtilities Dark (`#0f1117`), JavaScript thuần ES6+.
   - `frontend/index.html`: Cấu trúc 2 tab, Titlebar chuẩn 32px, Settings Modal 2 nhóm sidebar, Onboarding Wizard.
-  - `frontend/css/master_theme.css`: Bảng màu, typography và tokens zTools.
+  - `frontend/css/master_theme.css`: Bảng màu, typography và tokens VXUtilities.
   - `frontend/css/style.css`: Giao diện hiện đại, row-click hover/selection, floating action bar.
   - `frontend/js/app.js`: Tương tác UI mượt mà, toast notifications, realtime updates.
 

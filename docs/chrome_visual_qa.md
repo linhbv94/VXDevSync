@@ -15,7 +15,7 @@ Ngày: 2026-10-15. Phạm vi: hai thanh desktop; giữ theme dark và engine/CLI
 - 5/5 unit tests hiện có và4/4 window-action tests PASS. Unknown action/missing window bị từ chối; maximize/restore theo native events.
 - node --check cho app.js/window_chrome.js và AST ba file Python PASS.
 - master_theme.css byte-identical so với snapshot trước sửa.
-- Browser preview: titlebar32, controlbar44 y32, brandingx82, font12. Click Git→Skills→Git chuyển pane đúng. [Ảnh](../../_summary/vxdevsync_chrome_qa.png).
+- Browser preview: titlebar32, controlbar44 y32, brandingx82, font12. Click Git→Skills→Git chuyển pane đúng. [Ảnh](../../_summary/agents_handoff/vxdevsync_chrome_qa.png).
 - Lệnh tests đầu tiên chạy sai cwd gây import src lỗi; chạy lại từ root app đạt5/5.
 - AppKit offscreen process abort exit134 trong môi trường hiện tại, không được tính PASS.
 

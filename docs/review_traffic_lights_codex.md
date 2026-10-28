@@ -9,11 +9,11 @@
 ## 1. Bối cảnh & Vấn đề Cần Giải Quyết
 
 Dự án `vxdevsync/` là ứng dụng Desktop GUI viết bằng **Python + pywebview (Cocoa/WebKit)**.
-Các ứng dụng khác trong hệ sinh thái zTools (VXMedia, VXmp3, VXPhotos, VXClean, VXClick) được viết bằng **Tauri v2 (Rust + Wry)**.
+Các ứng dụng khác trong hệ sinh thái VXUtilities (VXMedia, VXmp3, VXPhotos, VXClean, VXClick) được viết bằng **Tauri v2 (Rust + Wry)**.
 
 User vừa phản hồi kèm hình ảnh:
 - Cụm nút traffic lights (đỏ, vàng, xanh) của VXDevSync hiện đang:
-  1. **Vẫn to hơn** so với các ứng dụng khác trong zTools (VXMedia, VXmp3).
+  1. **Vẫn to hơn** so với các ứng dụng khác trong VXUtilities (VXMedia, VXmp3).
   2. **Bị lệch khoảng cách:** Nút đỏ và nút vàng cách nhau 23px, trong khi nút vàng và nút xanh bị dính sát vào nhau (cách chỉ 15px).
 
 ---
@@ -91,7 +91,7 @@ Và trong `src/main.py`:
 ## 3. Câu hỏi Cần Codex Tham Vấn & Phản Biện
 
 1. **Tại sao cụm nút của VXDevSync lại to hơn các app Tauri (VXMedia, VXmp3)?**
-   - Trong `_summary/macos_window_fix_20261015.md`, có ghi nhận SDK compatibility 15.5 vs SDK local (macOS 15/26). Liệu có phải `frameless=True` trong pywebview hoặc cách tạo NSWindow trong pywebview đang tạo một Window kiểu khác, khiến các nút traffic lights hiển thị cỡ mặc định lớn (Regular controlSize thay vì Small / 12pt)?
+   - Trong `_summary/agents_handoff/macos_window_fix_20261015.md`, có ghi nhận SDK compatibility 15.5 vs SDK local (macOS 15/26). Liệu có phải `frameless=True` trong pywebview hoặc cách tạo NSWindow trong pywebview đang tạo một Window kiểu khác, khiến các nút traffic lights hiển thị cỡ mặc định lớn (Regular controlSize thay vì Small / 12pt)?
    - Trong Tauri (VXMedia), cửa sổ được cấu hình `titleBarStyle: Overlay, hiddenTitle: true, decorations: true`. Trong pywebview, hiện đang dùng `frameless=True`. Sự khác biệt này ảnh hưởng như thế nào đến kích thước và rendering của nút traffic lights?
 
 2. **Tại sao nút Zoom (xanh) lại bị dính sát vào nút Vàng (23px vs 15px)?**

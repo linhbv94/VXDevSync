@@ -76,12 +76,12 @@ Một số scope sẽ lớn hơn hai bản CLI vì GUI gỡ được giới hạ
 
 ## Bộ Tài liệu Đặc tả Hoàn chỉnh (Specification Package)
 
-Đã hoàn thiện bộ tài liệu đặc tả chuẩn hóa theo quy chuẩn zTools tại thư mục `docs/spec/`:
+Đã hoàn thiện bộ tài liệu đặc tả chuẩn hóa theo quy chuẩn VXUtilities tại thư mục `docs/spec/`:
 
 1. [00_system_overview.md](docs/spec/00_system_overview.md): Tổng quan hệ thống, kiến trúc Desktop Webview, phân tích đối sánh.
 2. [01_business_process.md](docs/spec/01_business_process.md): Quy trình nghiệp vụ Onboarding, Git Multi-Sync, Skills Auto-Sync, Cascade Delete & Tombstone.
 3. [02_feature_flow.md](docs/spec/02_feature_flow.md): Chi tiết các luồng tính năng, sequence diagrams, chuyển đổi trạng thái.
-4. [03_ui_wireframe.md](docs/spec/03_ui_wireframe.md): Đặc tả giao diện chi tiết, Titlebar 32px, Git Sync Dashboard, Skills Inventory, Settings Modal chuẩn zTools.
+4. [03_ui_wireframe.md](docs/spec/03_ui_wireframe.md): Đặc tả giao diện chi tiết, Titlebar 32px, Git Sync Dashboard, Skills Inventory, Settings Modal chuẩn VXUtilities.
 5. [04_api_data.md](docs/spec/04_api_data.md): Lược đồ `config.json` hợp nhất, Data models nội bộ, Desktop Bridge API.
 6. [05_qa_acceptance.md](docs/spec/05_qa_acceptance.md): Bộ tiêu chuẩn nghiệm thu Gherkin scenarios và QA checklist.
 

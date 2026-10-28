@@ -173,7 +173,7 @@ Khi người dùng bấm nút xóa một kỹ năng, hộp thoại cảnh báo n
 
 ## 5. Màn hình 4: Hộp thoại Cài đặt (Settings Modal)
 
-Tuân thủ nghiêm ngặt chuẩn cấu trúc Sidebar 2 nhóm của zTools:
+Tuân thủ nghiêm ngặt chuẩn cấu trúc Sidebar 2 nhóm của VXUtilities:
 
 ```text
 +-----------------------------------------------------------------------------------------+
