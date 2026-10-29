@@ -47,7 +47,7 @@ def main(mode):
     if (actual!=expected and not (mode=='finalize' and actual==expected|{'latest.json'})) or any(a['size']<=0 for a in release['assets']):raise ValueError('Wrong release asset layout')
     if mode=='publish':
         if os.environ.get('LOCAL_QA_PASSED')!='true':raise ValueError('Local QA not confirmed')
-        sha=gh('api',f'repos/{REPOSITORY}/git/ref/tags/{tag}','--jq','.object.sha').strip()
+        sha=gh('api',f'repos/{REPOSITORY}/commits/{tag}','--jq','.sha').strip()
         runs=json.loads(gh('run','list','--repo',REPOSITORY,'--workflow','release.yml','--limit','20','--json','headSha,status,conclusion'))
         accepted=False
         for run in runs:
