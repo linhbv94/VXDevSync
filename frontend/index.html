@@ -6,54 +6,57 @@
   <title>VXDevSync</title>
   <link rel="stylesheet" href="css/master_theme.css">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/shared_settings_ui.css">
+  <link rel="stylesheet" href="css/shared_settings_adapter.css">
 </head>
 <body>
   <div class="app-container">
     <!-- Titlebar (32px) -->
-    <header class="titlebar pywebview-drag-region">
+    <header data-vx-titlebar-profile="standard_32" class="titlebar pywebview-drag-region">
       <div class="titlebar-left pywebview-drag-region">
         <div class="mac-traffic-lights-spacer"></div>
-<nav class="windows-menu" aria-label="Menu ứng dụng">
-<details><summary>File</summary><div class="window-menu-popup"><button data-click-target="btn-open-workspace">Mở workspace…</button><button data-click-target="btn-open-settings">Cài đặt…</button></div></details>
-<details><summary>View</summary><div class="window-menu-popup"><button data-click-target="tab-btn-git">Git Multi-Sync</button><button data-click-target="tab-btn-skills">Skills Auto-Sync</button><button data-click-target="btn-rescan-all">Quét lại</button></div></details>
-</nav>
+
         <div class="app-branding pywebview-drag-region">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg data-vx-titlebar-glyph width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="16 18 22 12 16 6"></polyline>
             <polyline points="8 6 2 12 8 18"></polyline>
           </svg>
-          <span>VXDevSync</span>
+          <span data-vx-titlebar-name>VXDevSync</span>
         </div>
+<nav data-vx-windows-menu class="windows-menu" aria-label="Menu ứng dụng" data-ui-aria-label="m_c2dd2bbb2fbe">
+<details><summary><span data-ui-copy="m_b3ed274aad9b">Tệp</span></summary><div class="window-menu-popup"><button data-click-target="btn-open-workspace"><span data-ui-copy="m_66f08971b2cb">Mở workspace…</span></button><button data-click-target="btn-open-settings"><span data-ui-copy="m_e7d9a9c4f9f7">Cài đặt…</span></button></div></details>
+<details><summary>Xem</summary><div class="window-menu-popup"><button data-click-target="tab-btn-git">Git Multi-Sync</button><button data-click-target="tab-btn-skills">Skills Auto-Sync</button><button data-click-target="btn-rescan-all"><span data-ui-copy="m_0ca1e4ed8bf9">Quét lại</span></button></div></details>
+</nav>
 
       </div>
       <div class="titlebar-right">
         <!-- Open Folder Button with Recent Dropdown -->
         <div class="dropdown-container">
-          <button class="btn-open-folder" id="btn-open-workspace" title="Mở Workspace">
+          <button class="btn-open-folder" id="btn-open-workspace" title="Mở Workspace" data-ui-title="m_673d23828373">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
-            <span id="label-current-workspace">Mở workspace...</span>
+            <span id="label-current-workspace"><span data-ui-copy="m_07d2aadd4665">Mở workspace...</span></span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <div class="recent-dropdown" id="recent-workspaces-dropdown">
-            <div class="recent-dropdown-header">Workspace gần đây</div>
+            <div class="recent-dropdown-header"><span data-ui-copy="m_477b272d98ba">Workspace gần đây</span></div>
             <div id="recent-workspaces-list">
               <!-- Rendered via JS -->
             </div>
           </div>
         </div>
-        <button class="btn-icon" id="btn-open-settings" title="Cài đặt">
+        <button class="btn-icon" id="btn-open-settings" data-vx-titlebar-settings aria-label="Cài đặt" title="Cài đặt" data-ui-aria-label="m_202e0e9b0b85" data-ui-title="m_202e0e9b0b85">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
           </svg>
         </button>
       </div>
-      <div class="windows-controls" aria-label="Điều khiển cửa sổ">
-<button data-window-action="minimize" aria-label="Thu nhỏ">−</button><button data-window-action="toggle_maximize" aria-label="Phóng to hoặc khôi phục">□</button><button data-window-action="close" aria-label="Đóng">×</button>
+      <div class="windows-controls" aria-label="Điều khiển cửa sổ" data-ui-aria-label="m_4e08e039cae3">
+<button data-window-action="minimize" aria-label="Thu nhỏ" data-ui-aria-label="m_d7896922f281">−</button><button data-window-action="toggle_maximize" aria-label="Phóng to hoặc khôi phục" data-ui-aria-label="m_0137d381d14d">□</button><button data-window-action="close" aria-label="Đóng" data-ui-aria-label="m_5d54c2a1a341">×</button>
 </div>
     </header>
     <div class="controlbar">
@@ -69,13 +72,13 @@
         </div>
       </div>
 
-        <button class="btn-secondary controlbar-rescan" id="btn-rescan-all" title="Làm mới trạng thái">
+        <button class="btn-secondary controlbar-rescan" id="btn-rescan-all" title="Làm mới trạng thái" data-ui-title="m_5c5763c130e6">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10"></polyline>
             <polyline points="1 20 1 14 7 14"></polyline>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
           </svg>
-          <span>Quét lại</span>
+          <span><span data-ui-copy="m_0ca1e4ed8bf9">Quét lại</span></span>
         </button>
     </div>
 
@@ -87,21 +90,21 @@
         <!-- Sub-header -->
         <div class="sub-header">
           <div class="sub-header-left">
-            <span id="git-scan-summary">Đang quét workspace...</span>
+            <span id="git-scan-summary"><span data-ui-copy="m_787bd5fb7ecb">Đang quét workspace...</span></span>
           </div>
           <div class="sub-header-right">
             <div class="filter-tabs">
-              <button class="filter-btn active" data-filter="all">Tất cả (<span id="count-all">0</span>)</button>
-              <button class="filter-btn" data-filter="needs_sync">Cần Sync (<span id="count-sync">0</span>)</button>
-              <button class="filter-btn" data-filter="clean">Đã Sạch (<span id="count-clean">0</span>)</button>
-              <button class="filter-btn" data-filter="dirty">Dirty/Lỗi (<span id="count-dirty">0</span>)</button>
+              <button class="filter-btn active" data-filter="all"><span data-ui-copy="m_7c980cbd6de7">Tất cả (</span><span id="count-all">0</span>)</button>
+              <button class="filter-btn" data-filter="needs_sync"><span data-ui-copy="m_8c47179c4a0c">Cần Sync (</span><span id="count-sync">0</span>)</button>
+              <button class="filter-btn" data-filter="clean"><span data-ui-copy="m_5bdc29c20dc1">Đã Sạch (</span><span id="count-clean">0</span>)</button>
+              <button class="filter-btn" data-filter="dirty"><span data-ui-copy="m_4b30d595e6e8">Dirty/Lỗi (</span><span id="count-dirty">0</span>)</button>
             </div>
             <div class="search-input-wrap">
               <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" class="search-input" id="git-search-input" placeholder="Tìm kiếm repository...">
+              <input type="text" class="search-input" id="git-search-input" placeholder="Tìm kiếm repository..." data-ui-placeholder="m_1ae045677eb4">
             </div>
           </div>
         </div>
@@ -111,39 +114,39 @@
           <div class="selection-left">
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
               <input type="checkbox" id="chk-select-all">
-              <span>Chọn tất cả</span>
+              <span><span data-ui-copy="m_1fc87f0a0f9f">Chọn tất cả</span></span>
             </label>
             <button class="btn-secondary" id="btn-select-changed">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span>Chỉ chọn repo có thay đổi (<span id="count-changed">0</span>)</span>
+              <span><span data-ui-copy="m_b74bac0813a3">Chỉ chọn repo có thay đổi (</span><span id="count-changed">0</span>)</span>
             </button>
-            <button class="btn-primary" id="btn-smart-sync-changed" title="Smart Sync ngay tất cả các repo có thay đổi mà không cần chọn thủ công">
+            <button class="btn-primary" id="btn-smart-sync-changed" title="Smart Sync ngay tất cả các repo có thay đổi mà không cần chọn thủ công" data-ui-title="m_a8a553c97d85">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
               </svg>
-              <span>Smart Sync thay đổi (<span id="count-sync-now">0</span>)</span>
+              <span><span data-ui-copy="m_9b5230a30a69">Smart Sync thay đổi (</span><span id="count-sync-now">0</span>)</span>
             </button>
-            <button class="btn-secondary" id="btn-pull-all" title="Pull dữ liệu mới từ remote cho tất cả các repos">
+            <button class="btn-secondary" id="btn-pull-all" title="Pull dữ liệu mới từ remote cho tất cả các repos" data-ui-title="m_8e948df793e5">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 3v13"></path>
                 <path d="m6 10 6 6 6-6"></path>
                 <path d="M5 21h14"></path>
               </svg>
-              <span>Pull tất cả (<span id="count-pull-now">0</span>)</span>
+              <span><span data-ui-copy="m_b7f2c196daf4">Pull tất cả (</span><span id="count-pull-now">0</span>)</span>
             </button>
-            <button class="btn-secondary" id="btn-push-all" title="Push commit cục bộ lên remote cho tất cả các repos">
+            <button class="btn-secondary" id="btn-push-all" title="Push commit cục bộ lên remote cho tất cả các repos" data-ui-title="m_a76721f72572">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 19V6"></path>
                 <path d="m6 12 6-6 6 6"></path>
                 <path d="M5 21h14"></path>
               </svg>
-              <span>Push tất cả (<span id="count-push-now">0</span>)</span>
+              <span><span data-ui-copy="m_ea7551246098">Push tất cả (</span><span id="count-push-now">0</span>)</span>
             </button>
           </div>
           <div class="selection-right">
-            <span id="selected-status-text">Đã chọn: 0 repos</span>
+            <span id="selected-status-text"><span data-ui-copy="m_a68ab842e8f7">Đã chọn: 0 repos</span></span>
           </div>
         </div>
 
@@ -153,13 +156,13 @@
             <thead>
               <tr>
                 <th style="width: 36px; text-align: center;"></th>
-                <th>Dự án (Repository)</th>
-                <th>Nhánh</th>
-                <th>Trạng thái File</th>
+                <th><span data-ui-copy="m_bee1a7b66a89">Dự án (Repository)</span></th>
+                <th><span data-ui-copy="m_fba7f9a2268e">Nhánh</span></th>
+                <th><span data-ui-copy="m_2e7f5ede2bc6">Trạng thái File</span></th>
                 <th>Git Sync</th>
-                <th>Lệch</th>
-                <th>Hành động Đề xuất</th>
-                <th style="text-align: right; padding-right: 14px;">Thao tác</th>
+                <th><span data-ui-copy="m_dd9f6b229f3f">Lệch</span></th>
+                <th><span data-ui-copy="m_0c0d0ae27518">Hành động Đề xuất</span></th>
+                <th style="text-align: right; padding-right: 14px;"><span data-ui-copy="m_fc29e7e6df30">Thao tác</span></th>
               </tr>
             </thead>
             <tbody id="git-repos-tbody">
@@ -174,48 +177,48 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            <span id="floating-selected-count">0 đã chọn</span>
+            <span id="floating-selected-count"><span data-ui-copy="m_6acc2bc45c54">0 đã chọn</span></span>
           </div>
 
           <div class="floating-divider"></div>
 
           <!-- Action 1: Smart Sync (Icon Only) -->
-          <button class="action-btn action-btn-primary" id="btn-action-smart-sync" aria-label="Smart Sync đã chọn">
+          <button class="action-btn action-btn-primary" id="btn-action-smart-sync" aria-label="Smart Sync đã chọn" data-ui-aria-label="m_bcd0f4b98d06">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
             </svg>
-            <div class="action-tooltip">Smart Sync đã chọn (Pull & Push)</div>
+            <div class="action-tooltip"><span data-ui-copy="m_294d06f04be9">Smart Sync đã chọn (Pull </span>& Push)</div>
           </button>
 
           <!-- Action 2: Pull (Icon Only) -->
-          <button class="action-btn" id="btn-action-pull" aria-label="Pull đã chọn">
+          <button class="action-btn" id="btn-action-pull" aria-label="Pull đã chọn" data-ui-aria-label="m_aefdb3877988">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            <div class="action-tooltip">Pull đã chọn (Remote → Local)</div>
+            <div class="action-tooltip"><span data-ui-copy="m_5512a6963bc5">Pull đã chọn (Remote → Local)</span></div>
           </button>
 
           <!-- Action 3: Push (Icon Only) -->
-          <button class="action-btn" id="btn-action-push" aria-label="Push đã chọn">
+          <button class="action-btn" id="btn-action-push" aria-label="Push đã chọn" data-ui-aria-label="m_80a8b7e79ca0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <div class="action-tooltip">Push đã chọn (Local → Remote)</div>
+            <div class="action-tooltip"><span data-ui-copy="m_05bb8551b255">Push đã chọn (Local → Remote)</span></div>
           </button>
 
           <div class="floating-divider"></div>
 
           <!-- Action 4: Clear Selection (Icon Only) -->
-          <button class="action-btn action-btn-close" id="btn-action-clear-selection" aria-label="Bỏ chọn tất cả">
+          <button class="action-btn action-btn-close" id="btn-action-clear-selection" aria-label="Bỏ chọn tất cả" data-ui-aria-label="m_fa61578e9a57">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
-            <div class="action-tooltip">Bỏ chọn tất cả (Esc)</div>
+            <div class="action-tooltip"><span data-ui-copy="m_78a37df75ca7">Bỏ chọn tất cả (Esc)</span></div>
           </button>
         </div>
       </section>
@@ -232,7 +235,7 @@
             <div>
               <div style="display: flex; align-items: center; gap: 6px;">
                 <strong style="color: var(--text-primary);">Central Skills Library:</strong>
-                <span id="label-skills-lib-path" style="font-family: var(--font-mono); color: var(--text-secondary);">Chưa cấu hình</span>
+                <span id="label-skills-lib-path" style="font-family: var(--font-mono); color: var(--text-secondary);"><span data-ui-copy="m_181cbb2888b0">Chưa cấu hình</span></span>
                 <span class="badge badge-success" id="badge-lib-git">Git Ready</span>
               </div>
             </div>
@@ -242,7 +245,7 @@
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
               </svg>
-              <span>Đổi Thư viện...</span>
+              <span><span data-ui-copy="m_4459e7f3ef19">Đổi Thư viện...</span></span>
             </button>
           </div>
         </div>
@@ -272,7 +275,7 @@
             <div class="agent-card-bottom">
               <div class="agent-status-indicator" id="status-agent-anti">
                 <span class="status-dot active"></span>
-                <span class="status-text">Đang kích hoạt</span>
+                <span class="status-text"><span data-ui-copy="m_830ff6b5422f">Đang kích hoạt</span></span>
               </div>
               <span class="agent-skills-badge" id="count-agent-anti">0 skills</span>
             </div>
@@ -301,7 +304,7 @@
             <div class="agent-card-bottom">
               <div class="agent-status-indicator" id="status-agent-codex">
                 <span class="status-dot active"></span>
-                <span class="status-text">Đang kích hoạt</span>
+                <span class="status-text"><span data-ui-copy="m_830ff6b5422f">Đang kích hoạt</span></span>
               </div>
               <span class="agent-skills-badge" id="count-agent-codex">0 skills</span>
             </div>
@@ -330,7 +333,7 @@
             <div class="agent-card-bottom">
               <div class="agent-status-indicator" id="status-agent-claude">
                 <span class="status-dot inactive"></span>
-                <span class="status-text">Chưa kích hoạt</span>
+                <span class="status-text"><span data-ui-copy="m_e2fba40f847b">Chưa kích hoạt</span></span>
               </div>
               <span class="agent-skills-badge" id="count-agent-claude">0 skills</span>
             </div>
@@ -340,7 +343,7 @@
         <!-- Skills Inventory Header -->
         <div class="selection-bar">
           <div class="selection-left">
-            <strong style="color: var(--text-primary); font-size: 12px;">Ma trận Kỹ năng (Skills Inventory - <span id="count-skills-total">0</span>)</strong>
+            <strong style="color: var(--text-primary); font-size: 12px;"><span data-ui-copy="m_85dc396c5d72">Ma trận Kỹ năng (Skills Inventory - </span><span id="count-skills-total">0</span>)</strong>
           </div>
           <div class="selection-right">
             <div class="search-input-wrap">
@@ -348,7 +351,7 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" class="search-input" id="skills-search-input" placeholder="Tìm kiếm kỹ năng...">
+              <input type="text" class="search-input" id="skills-search-input" placeholder="Tìm kiếm kỹ năng..." data-ui-placeholder="m_9722be4cf465">
             </div>
           </div>
         </div>
@@ -358,12 +361,12 @@
           <table class="data-table" id="skills-table">
             <thead>
               <tr>
-                <th>Tên Kỹ Năng (Skill Name)</th>
+                <th><span data-ui-copy="m_0e795526d445">Tên Kỹ Năng (Skill Name)</span></th>
                 <th>Central Library</th>
                 <th>Antigravity</th>
                 <th>Codex</th>
                 <th>Claude Code</th>
-                <th style="text-align: right; padding-right: 14px;">Thao tác</th>
+                <th style="text-align: right; padding-right: 14px;"><span data-ui-copy="m_fc29e7e6df30">Thao tác</span></th>
               </tr>
             </thead>
             <tbody id="skills-tbody">
@@ -374,15 +377,15 @@
 
         <!-- Bottom Action Bar for Skills Sync -->
         <div class="sub-header" style="background: var(--bg-surface); border-color: var(--border-medium); padding: 8px 14px;">
-          <div id="skills-sync-hint" style="color: var(--text-secondary); font-size: 11px;">
+          <div id="skills-sync-hint" style="color: var(--text-secondary); font-size: 11px;"><span data-ui-copy="m_c5ef95ed4a93">
             Sẵn sàng đồng bộ Kỹ năng và Quy tắc AGENTS.md / CLAUDE.md.
-          </div>
+          </span></div>
           <div style="display: flex; gap: 8px;">
             <button class="btn-primary" id="btn-sync-skills-unified">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
               </svg>
-              <span>Đồng bộ Tất cả (Kỹ năng & Rules AGENTS.md)</span>
+              <span><span data-ui-copy="m_321a8e781a4c">Đồng bộ Tất cả (Kỹ năng </span>& Rules AGENTS.md)</span>
             </button>
           </div>
         </div>
@@ -391,40 +394,40 @@
     </main>
 
     <!-- SETTINGS MODAL -->
-    <div class="modal-overlay" id="modal-settings">
-      <div class="modal-window settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <div class="settings-header pywebview-drag-region">
+    <div class="modal-overlay" id="modal-settings" data-vx-settings-webview>
+      <div class="modal-window settings-modal vx_settings_ui" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="settings-header vx_settings_header pywebview-drag-region">
           <div style="display: flex; align-items: center; gap: 6px;">
             
-            <span id="settings-title">Cài đặt VXDevSync</span>
+            <span id="settings-title"><span data-ui-copy="m_289962557f3f">Cài đặt VXDevSync</span></span>
           </div>
-          <button class="btn-icon" id="btn-close-settings" aria-label="Đóng cài đặt">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="btn-icon" id="btn-close-settings" aria-label="Đóng cài đặt" data-ui-aria-label="m_c72778e30476">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
-        <div class="settings-body">
-          <nav class="settings-sidebar">
+        <div class="settings-body vx_settings_layout">
+          <nav class="settings-sidebar vx_settings_nav">
             
-            <button type="button" class="settings-nav-item active" data-settings-tab="general"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span>Chung</span></button>
-            <button type="button" class="settings-nav-item" data-settings-tab="git-sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 7v10m0-4c8 0 12-1 12-5"/></svg><span>Git Multi-Sync</span></button>
-            <button type="button" class="settings-nav-item" data-settings-tab="skills-sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg><span>Skills Auto-Sync</span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item active" data-settings-tab="general"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span>Chung</span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="git-sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 7v10m0-4c8 0 12-1 12-5"/></svg><span>Git Multi-Sync</span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="skills-sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg><span>Skills Auto-Sync</span></button>
             <div style="height: 1px; background: var(--border-subtle); margin: 6px 0;"></div>
             
-            <button type="button" class="settings-nav-item" data-settings-tab="updates"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg><span>Cập nhật</span></button>
-            <button type="button" class="settings-nav-item" data-settings-tab="about"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg><span>Giới thiệu</span></button>
-            <button type="button" class="settings-nav-item" data-settings-tab="support"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 8h12v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Zm12 1h2a3 3 0 0 1 0 6h-2M7 2v3m5-3v3"/></svg><span>Ủng hộ tác giả</span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="updates"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg><span><span data-ui-copy="m_5293d03c5908">Cập nhật</span></span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="about"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg><span><span data-ui-copy="m_0c84d33fc96b">Giới thiệu</span></span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="support"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 8h12v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Zm12 1h2a3 3 0 0 1 0 6h-2M7 2v3m5-3v3"/></svg><span><span data-ui-copy="m_b20f7cc140a5">Ủng hộ tác giả</span></span></button>
           </nav>
 
-          <div class="settings-content-area" id="settings-tab-content">
+          <div class="settings-content-area vx_settings_body" id="settings-tab-content">
             <!-- Dynamic Content via JS -->
           </div>
         </div>
-        <div class="settings-footer">
-          <button class="btn-secondary" id="btn-settings-reset">Khôi phục mặc định</button>
-          <button class="btn-primary" id="btn-settings-save">Lưu & Đóng</button>
+        <div class="settings-footer vx_settings_footer">
+          <button class="btn-secondary vx_settings_reset" id="btn-settings-reset"><span data-ui-copy="m_7d7091996921">Khôi phục mặc định</span></button>
+          <button class="btn-primary vx_settings_primary" id="btn-settings-save"><span data-ui-copy="m_e91f26c04ae9">Lưu </span>&<span data-ui-copy="m_5d54c2a1a341"> Đóng</span></button>
         </div>
       </div>
     </div>
@@ -439,23 +442,23 @@
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
           <div>
-            <h3 style="font-size: 14px; font-weight: 600;">Xác nhận Xóa Vĩnh viễn Kỹ năng</h3>
-            <p style="font-size: 11px; color: var(--text-muted);">Thao tác này sẽ xóa đồng loạt tại mọi nguồn và đích.</p>
+            <h3 style="font-size: 14px; font-weight: 600;"><span data-ui-copy="m_f510e0057254">Xác nhận Xóa Vĩnh viễn Kỹ năng</span></h3>
+            <p style="font-size: 11px; color: var(--text-muted);"><span data-ui-copy="m_4a425031766e">Thao tác này sẽ xóa đồng loạt tại mọi nguồn và đích.</span></p>
           </div>
         </div>
 
-        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 10px; font-size: 11px;">
-          Bạn có chắc chắn muốn xóa kỹ năng: <strong id="delete-skill-target-name" style="color: var(--color-danger); font-family: var(--font-mono);"></strong>?
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 10px; font-size: 11px;"><span data-ui-copy="m_8b7fcb3906d0">
+          Bạn có chắc chắn muốn xóa kỹ năng: </span><strong id="delete-skill-target-name" style="color: var(--color-danger); font-family: var(--font-mono);"></strong>?
           <ul style="margin: 8px 0 0 16px; color: var(--text-secondary); line-height: 1.6;">
-            <li>Xóa tại Central Library</li>
-            <li>Xóa tại tất cả các Agent cục bộ đang kích hoạt</li>
-            <li><strong>Git & GitHub tức thì:</strong> Tự động commit và push xóa lên GitHub ngay lập tức.</li>
-            <li><strong>Tombstone Manifest:</strong> Chặn hồi sinh khi các máy tính khác kéo về.</li>
+            <li><span data-ui-copy="m_844efb130921">Xóa tại Central Library</span></li>
+            <li><span data-ui-copy="m_65d44c274eb4">Xóa tại tất cả các Agent cục bộ đang kích hoạt</span></li>
+            <li><strong>Git &<span data-ui-copy="m_9609bcdb8d8f"> GitHub tức thì:</span></strong><span data-ui-copy="m_af0e1ad322e3"> Tự động commit và push xóa lên GitHub ngay lập tức.</span></li>
+            <li><strong>Tombstone Manifest:</strong><span data-ui-copy="m_6152c961653f"> Chặn hồi sinh khi các máy tính khác kéo về.</span></li>
           </ul>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
-          <button class="btn-secondary" id="btn-cancel-delete">Hủy bỏ</button>
+          <button class="btn-secondary" id="btn-cancel-delete"><span data-ui-copy="m_09c9e7122bb3">Hủy bỏ</span></button>
           <button class="btn-primary" id="btn-confirm-delete" style="background: var(--color-danger); color: white; display: inline-flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -463,7 +466,7 @@
               <line x1="10" y1="11" x2="10" y2="17"></line>
               <line x1="14" y1="11" x2="14" y2="17"></line>
             </svg>
-            <span>Xóa Triệt Để Ngay</span>
+            <span><span data-ui-copy="m_1aa7be9c43ce">Xóa Triệt Để Ngay</span></span>
           </button>
         </div>
       </div>
@@ -480,39 +483,39 @@
               </svg>
             </div>
           </div>
-          <h2 style="font-size: 16px; font-weight: 600; color: var(--text-primary);">Chào mừng đến với VXDevSync</h2>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Thiết lập nhanh không gian làm việc để bắt đầu đồng bộ.</p>
+          <h2 style="font-size: 16px; font-weight: 600; color: var(--text-primary);"><span data-ui-copy="m_cdff62714b7d">Chào mừng đến với VXDevSync</span></h2>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;"><span data-ui-copy="m_74aa9f57f46a">Thiết lập nhanh không gian làm việc để bắt đầu đồng bộ.</span></p>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 8px;">
           <div class="form-group">
-            <label class="form-label">1. Thư mục Workspace Git cần quét (Root):</label>
+            <label class="form-label"><span data-ui-copy="m_47441b4c2bc8">1. Thư mục Workspace Git cần quét (Root):</span></label>
             <div class="form-input-row">
               <input type="text" class="form-input" id="onboard-scan-path" placeholder="/Users/vic/_Work">
-              <button class="btn-secondary" id="btn-onboard-pick-scan">Duyệt...</button>
+              <button class="btn-secondary" id="btn-onboard-pick-scan"><span data-ui-copy="m_7e8f43a90dc3">Duyệt...</span></button>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">2. Thư mục Central Skills Library (Tùy chọn):</label>
+            <label class="form-label"><span data-ui-copy="m_b2ab9604ed77">2. Thư mục Central Skills Library (Tùy chọn):</span></label>
             <div class="form-input-row">
               <input type="text" class="form-input" id="onboard-skills-lib" placeholder="/Users/vic/my_skills_library">
-              <button class="btn-secondary" id="btn-onboard-pick-skills">Duyệt...</button>
+              <button class="btn-secondary" id="btn-onboard-pick-skills"><span data-ui-copy="m_7e8f43a90dc3">Duyệt...</span></button>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">3. Link Git của Skills Library tổng (Tùy chọn):</label>
+            <label class="form-label"><span data-ui-copy="m_2350674e86aa">3. Link Git của Skills Library tổng (Tùy chọn):</span></label>
             <div class="form-input-row">
               <input type="text" class="form-input" id="onboard-skills-repo" placeholder="https://github.com/username/my_skills_library.git">
             </div>
-            <span style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Git Remote URL để sao lưu và đồng bộ kỹ năng AI giữa nhiều máy (để trống nếu dùng offline).</span>
+            <span style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"><span data-ui-copy="m_2363a835c271">Git Remote URL để sao lưu và đồng bộ kỹ năng AI giữa nhiều máy (để trống nếu dùng offline).</span></span>
           </div>
         </div>
 
         <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
           <button class="btn-primary" id="btn-onboard-finish" style="width: 100%; justify-content: center; padding: 8px; display: inline-flex; align-items: center; gap: 6px;">
-            <span>Bắt đầu làm việc ngay</span>
+            <span><span data-ui-copy="m_fa751713ecdd">Bắt đầu làm việc ngay</span></span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>
@@ -532,9 +535,9 @@
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
-            <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);" id="sync-errors-title">Chi tiết Kết quả Đồng bộ Git</h3>
+            <h3 style="font-size: 14px; font-weight: 600; color: var(--text-primary);" id="sync-errors-title"><span data-ui-copy="m_5c630a2c7d48">Chi tiết Kết quả Đồng bộ Git</span></h3>
           </div>
-          <button class="btn-icon" id="btn-close-sync-errors" aria-label="Đóng">
+          <button class="btn-icon" id="btn-close-sync-errors" aria-label="Đóng" data-ui-aria-label="m_5d54c2a1a341">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -556,15 +559,15 @@
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
             </svg>
-            <span>Sao chép Log Lỗi</span>
+            <span><span data-ui-copy="m_32a5ec1cdbfe">Sao chép Log Lỗi</span></span>
           </button>
           <div style="display: flex; gap: 8px;">
-            <button class="btn-secondary" id="btn-dismiss-sync-errors">Đóng</button>
+            <button class="btn-secondary" id="btn-dismiss-sync-errors"><span data-ui-copy="m_5d54c2a1a341">Đóng</span></button>
             <button class="btn-primary" id="btn-retry-failed-sync" style="display: inline-flex; align-items: center; gap: 6px;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
               </svg>
-              <span>Thử lại các Repo lỗi</span>
+              <span><span data-ui-copy="m_702439d952ad">Thử lại các Repo lỗi</span></span>
             </button>
           </div>
         </div>
@@ -576,6 +579,9 @@
   </div>
 
   <script src="js/window_chrome.js"></script>
+  <script src="js/ui_language.js"></script>
+  <script src="js/shared_settings_copy.js"></script>
+  <script src="js/shared_settings_ui.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

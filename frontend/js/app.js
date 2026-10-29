@@ -59,10 +59,7 @@ async function initApp() {
 
     setupEventListeners();
     updateUIFromConfig();
-    // Startup checks never install or interrupt a sync automatically.
-    window.pywebview.api.check_updates().then(result => {
-      if (result.success && result.available) showToast(`Có bản ${result.version}. Mở Cài đặt → Cập nhật để cài.`, "info");
-    }).catch(() => {});
+    startUpdateUI();
 
     if (state.isFirstRun) {
       openOnboardingModal();
@@ -77,18 +74,22 @@ async function initApp() {
       }
     }
   } catch (err) {
-    console.error("Lỗi khởi tạo ứng dụng:", err);
-    showToast("Lỗi kết nối với Python backend", "danger");
+    console.error(devText("Lỗi khởi tạo ứng dụng:"), err);
+    showToast(devText("Lỗi kết nối với Python backend"), "danger");
   }
 }
 
 // Cập nhật các thành phần UI từ Config
 function updateUIFromConfig() {
+  document.documentElement.dataset.theme = state.config.general.theme;
+  document.documentElement.lang = state.config.general.lang;
+  window.applyUiLanguage();
+  window.pywebview?.api.set_ui_language?.(state.config.general.lang)?.catch(console.error);
   const gitCfg = state.config.git_sync;
   const skillsCfg = state.config.skills_sync;
 
   // Titlebar Workspace Path
-  const currentPath = gitCfg.scan_path || "Chưa chọn workspace";
+  const currentPath = gitCfg.scan_path || devText("Chưa chọn workspace");
   const labelElem = document.getElementById("label-current-workspace");
   if (labelElem) {
     labelElem.textContent = currentPath.split(/[\\/]/).filter(Boolean).pop() || currentPath;
@@ -101,7 +102,7 @@ function updateUIFromConfig() {
   // Central Skills Library Header
   const libPathElem = document.getElementById("label-skills-lib-path");
   if (libPathElem) {
-    libPathElem.textContent = skillsCfg.skills_lib || "Chưa cấu hình";
+    libPathElem.textContent = skillsCfg.skills_lib || devText("Chưa cấu hình");
   }
 
   // Agent Toggles
@@ -133,7 +134,7 @@ function updateAgentCardStatus(agentKey, isActive) {
   if (statusElem) {
     statusElem.innerHTML = `
       <span class="status-dot ${isActive ? 'active' : 'inactive'}"></span>
-      <span class="status-text">${isActive ? 'Đang kích hoạt' : 'Chưa kích hoạt'}</span>
+      <span class="status-text">${isActive ? devText("Đang kích hoạt") : devText("Chưa kích hoạt")}</span>
     `;
   }
 }
@@ -181,10 +182,10 @@ function setupEventListeners() {
         if (updateRes.success) {
           state.config.skills_sync.skills_lib = updateRes.skills_lib;
           updateUIFromConfig();
-          showToast("Đã cập nhật Thư viện Kỹ năng", "success");
+          showToast(devText("Đã cập nhật Thư viện Kỹ năng"), "success");
           triggerSkillsScan();
         } else {
-          showToast(updateRes.error || "Lỗi cập nhật đường dẫn", "danger");
+          showToast(updateRes.error || devText("Lỗi cập nhật đường dẫn"), "danger");
         }
       }
     } catch (err) {
@@ -247,7 +248,7 @@ function setupEventListeners() {
     });
     updateSelectionUI();
     renderGitReposTable();
-    showToast(`Đã chọn ${state.selectedRepoPaths.size} repos có thay đổi`, "info");
+    showToast((devText("Đã chọn ") + (state.selectedRepoPaths.size) + devText(" repos có thay đổi")), "info");
   });
 
   // Git Smart Sync Changed Directly (One-Click Sync)
@@ -255,7 +256,7 @@ function setupEventListeners() {
     const activeRepos = state.gitRepos.filter(r => !r.is_ignored);
     const changed = activeRepos.filter(r => r.is_dirty || r.behind_count > 0 || r.ahead_count > 0);
     if (changed.length === 0) {
-      showToast("Tất cả repository đã đồng bộ!", "info");
+      showToast(devText("Tất cả repository đã đồng bộ!"), "info");
       return;
     }
     executeGitAction("smart_sync", changed.map(r => r.path));
@@ -267,12 +268,12 @@ function setupEventListeners() {
     btnPullAll.addEventListener("click", () => {
       const activeRepos = state.gitRepos.filter(r => !r.is_ignored && r.has_remote);
       if (activeRepos.length === 0) {
-        showToast("Không tìm thấy repository có remote để Pull", "info");
+        showToast(devText("Không tìm thấy repository có remote để Pull"), "info");
         return;
       }
       const behindRepos = activeRepos.filter(r => r.behind_count > 0);
       if (behindRepos.length === 0) {
-        showToast("Không có repository nào cần Pull (Tất cả đã ở phiên bản mới nhất)", "info");
+        showToast(devText("Không có repository nào cần Pull (Tất cả đã ở phiên bản mới nhất)"), "info");
         return;
       }
       executeGitAction("pull", behindRepos.map(r => r.path));
@@ -286,7 +287,7 @@ function setupEventListeners() {
       const activeRepos = state.gitRepos.filter(r => !r.is_ignored && r.has_remote);
       const aheadRepos = activeRepos.filter(r => r.ahead_count > 0);
       if (aheadRepos.length === 0) {
-        showToast("Không có repository nào có commit mới cần Push", "info");
+        showToast(devText("Không có repository nào có commit mới cần Push"), "info");
         return;
       }
       executeGitAction("push", aheadRepos.map(r => r.path));
@@ -318,16 +319,35 @@ function setupEventListeners() {
 
   // Phím tắt Escape để đóng modal hoặc hủy chọn tất cả
   document.addEventListener("keydown", (e) => {
+    if (e.isComposing) return;
     if (e.key === "Escape") {
       const syncErrorsModal = document.getElementById("modal-sync-errors");
       if (syncErrorsModal && syncErrorsModal.classList.contains("active")) {
         closeSyncErrorsModal();
         return;
       }
+      if (document.getElementById("modal-settings").classList.contains("active")) {
+        e.preventDefault();
+        closeSettingsModal();
+        return;
+      }
       if (state.selectedRepoPaths.size > 0 && state.currentTab === "git-sync-view") {
         state.selectedRepoPaths.clear();
         updateSelectionUI();
         renderGitReposTable();
+      }
+    }
+    if (e.key === "Tab" && document.getElementById("modal-settings").classList.contains("active")) {
+      const modal = document.getElementById("modal-settings");
+      const controls = Array.from(modal.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]'))
+        .filter(el => el.getClientRects().length > 0);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (!first) { e.preventDefault(); return; }
+      const outside = !modal.contains(document.activeElement);
+      if (e.shiftKey && (outside || document.activeElement === first)) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && (outside || document.activeElement === last)) {
+        e.preventDefault(); first.focus();
       }
     }
   });
@@ -383,7 +403,7 @@ function setupEventListeners() {
           const remoteRes = await window.pywebview.api.get_git_remote_url(res.path);
           if (remoteRes && remoteRes.success && remoteRes.url) {
             repoInput.value = remoteRes.url;
-            showToast("Đã tự động nhận diện Git Remote URL từ thư mục", "info");
+            showToast(devText("Đã tự động nhận diện Git Remote URL từ thư mục"), "info");
           }
         } catch (_) {}
       }
@@ -421,22 +441,22 @@ async function triggerGitScan(customPath = null) {
   updateSelectionUI();
 
   const summaryElem = document.getElementById("git-scan-summary");
-  summaryElem.textContent = "Đang quét workspace và kiểm tra remote...";
+  summaryElem.textContent = devText("Đang quét workspace và kiểm tra remote...");
 
   try {
     const res = await window.pywebview.api.scan_git_workspace(customPath);
     if (res.success) {
       state.gitRepos = res.repos || [];
-      summaryElem.textContent = `Workspace: ${res.scan_path} • Thời gian quét: ${res.elapsed_sec}s • Tìm thấy: ${res.total_count} repos`;
+      summaryElem.textContent = (devText("Workspace: ") + (res.scan_path) + devText(" • Thời gian quét: ") + (res.elapsed_sec) + devText("s • Tìm thấy: ") + (res.total_count) + devText(" repos"));
       updateGitCounts();
       renderGitReposTable();
     } else {
-      summaryElem.textContent = `Lỗi: ${res.error}`;
+      summaryElem.textContent = (devText("Lỗi: ") + (res.error) + devText(""));
       showToast(res.error, "danger");
     }
   } catch (err) {
     console.error(err);
-    summaryElem.textContent = "Lỗi thực thi quét Git";
+    summaryElem.textContent = devText("Lỗi thực thi quét Git");
   } finally {
     state.isScanningGit = false;
   }
@@ -500,7 +520,7 @@ function renderGitReposTable() {
 
   const repos = getFilteredGitRepos();
   if (repos.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">Không tìm thấy repository phù hợp</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;"><span data-ui-copy="m_76e3b5b28cc7">Không tìm thấy repository phù hợp</span></td></tr>`;
     return;
   }
 
@@ -520,7 +540,7 @@ function renderGitReposTable() {
     // Git Sync status badge & Action buttons
     let syncBadge = `<span class="badge badge-success">${SVG_ICONS.check} Up-to-date</span>`;
     if (isIgnored) {
-      syncBadge = `<span class="badge badge-muted">${SVG_ICONS.eyeOff} Loại trừ</span>`;
+      syncBadge = `<span class="badge badge-muted">${SVG_ICONS.eyeOff}<span data-ui-copy="m_fe50ff850e60"> Loại trừ</span></span>`;
     } else if (repo.is_diverged) {
       syncBadge = `<span class="badge badge-danger">${SVG_ICONS.alertTriangle} Diverged</span>`;
     } else if (repo.behind_count > 0) {
@@ -533,7 +553,7 @@ function renderGitReposTable() {
 
     // Offset
     const offsetStr = isIgnored ? "--" : `+${repo.ahead_count} / -${repo.behind_count}`;
-    const suggestedActionStr = isIgnored ? "Đã loại trừ" : repo.suggested_action;
+    const suggestedActionStr = isIgnored ? devText("Đã loại trừ") : repo.suggested_action;
 
     // Kiểm tra nếu repo này vừa bị sync lỗi
     const lastResult = state.lastSyncResults?.[repo.path];
@@ -542,7 +562,7 @@ function renderGitReposTable() {
       syncErrorIndicator = `
         <div style="margin-top: 3px;">
           <button type="button" class="badge badge-danger btn-view-repo-error" data-path="${escapeHtml(repo.path)}" style="cursor: pointer; padding: 2px 6px; border: none; font-family: inherit; font-size: 10px; display: inline-flex; align-items: center; gap: 4px;" aria-label="Xem chi tiết lỗi ${escapeHtml(lastResult.action.toUpperCase())} của repository ${escapeHtml(repo.name)}" title="Bấm để xem chi tiết lỗi: ${escapeHtml(lastResult.message)}">
-            <span class="badge-dot badge-dot-danger"></span>Lỗi ${escapeHtml(lastResult.action.toUpperCase())}
+            <span class="badge-dot badge-dot-danger"></span><span data-ui-copy="m_e68991b78542">Lỗi </span>${escapeHtml(lastResult.action.toUpperCase())}
           </button>
         </div>
       `;
@@ -550,7 +570,7 @@ function renderGitReposTable() {
 
     tr.innerHTML = `
       <td style="text-align: center;">
-        <input type="checkbox" class="repo-checkbox" ${isSelected ? "checked" : ""} ${isIgnored ? "disabled title='Repository đã bị loại trừ'" : ""}>
+        <input type="checkbox" class="repo-checkbox" ${isSelected ? "checked" : ""} ${isIgnored ? devText("disabled title='Repository đã bị loại trừ'") : ""}>
       </td>
       <td>
         <strong style="color: ${isIgnored ? 'var(--text-muted)' : 'var(--text-primary)'};">${escapeHtml(repo.name)}</strong>
@@ -569,12 +589,12 @@ function renderGitReposTable() {
       </td>
       <td style="text-align: right;">
         ${isIgnored
-          ? `<button class="table-action-btn btn-unexclude" title="Khôi phục (Bỏ loại trừ)">${SVG_ICONS.eye}</button>
-             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="Repo đã bị loại trừ">${SVG_ICONS.pull}</button>
-             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="Repo đã bị loại trừ">${SVG_ICONS.push}</button>`
-          : `<button class="table-action-btn btn-exclude" title="Loại trừ repo khỏi quét & đồng bộ">${SVG_ICONS.eyeOff}</button>
-             <button class="table-action-btn btn-pull" title="Chỉ Pull repo này">${SVG_ICONS.pull}</button>
-             <button class="table-action-btn btn-push" title="Chỉ Push repo này">${SVG_ICONS.push}</button>`
+          ? `<button class="table-action-btn btn-unexclude" title="Khôi phục (Bỏ loại trừ)" data-ui-title="m_f931daa9602a">${SVG_ICONS.eye}</button>
+             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="Repo đã bị loại trừ" data-ui-title="m_f213c2ef89d8">${SVG_ICONS.pull}</button>
+             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="Repo đã bị loại trừ" data-ui-title="m_f213c2ef89d8">${SVG_ICONS.push}</button>`
+          : `<button class="table-action-btn btn-exclude" title="Loại trừ repo khỏi quét & đồng bộ" data-ui-title="m_b50b631be52e">${SVG_ICONS.eyeOff}</button>
+             <button class="table-action-btn btn-pull" title="Chỉ Pull repo này" data-ui-title="m_e654f0f3c9a9">${SVG_ICONS.pull}</button>
+             <button class="table-action-btn btn-push" title="Chỉ Push repo này" data-ui-title="m_00a036125a41">${SVG_ICONS.push}</button>`
         }
       </td>
     `;
@@ -663,12 +683,12 @@ function toggleRepoSelection(repoPath, select) {
 function updateSelectionUI() {
   const count = state.selectedRepoPaths.size;
   const activeCount = state.gitRepos.filter(r => !r.is_ignored).length;
-  document.getElementById("selected-status-text").textContent = `Đã chọn: ${count} / ${activeCount} repos`;
+  document.getElementById("selected-status-text").textContent = (devText("Đã chọn: ") + (count) + devText(" / ") + (activeCount) + devText(" repos"));
   
   const floatingBar = document.getElementById("git-action-bar");
   if (count > 0) {
     floatingBar.style.display = "flex";
-    document.getElementById("floating-selected-count").textContent = `${count} đã chọn`;
+    document.getElementById("floating-selected-count").textContent = (devText("") + (count) + devText(" đã chọn"));
   } else {
     floatingBar.style.display = "none";
   }
@@ -705,7 +725,7 @@ async function toggleExcludeRepo(repoName, shouldExclude) {
         if (shouldExclude) {
           state.selectedRepoPaths.delete(repo.path);
           repo.sync_state = "IGNORED";
-          repo.suggested_action = "Đã loại trừ";
+          repo.suggested_action = devText("Đã loại trừ");
         }
       }
 
@@ -718,7 +738,7 @@ async function toggleExcludeRepo(repoName, shouldExclude) {
       updateSelectionUI();
       updateGitCounts();
       renderGitReposTable();
-      showToast(shouldExclude ? `Đã loại trừ "${repoName}"` : `Đã khôi phục "${repoName}"`, "info");
+      showToast(shouldExclude ? (devText("Đã loại trừ \"") + (repoName) + devText("\"")) : (devText("Đã khôi phục \"") + (repoName) + devText("\"")), "info");
 
       // Nếu khôi phục, tự động quét lại ngầm để cập nhật offset chính xác
       if (!shouldExclude) {
@@ -727,7 +747,7 @@ async function toggleExcludeRepo(repoName, shouldExclude) {
     }
   } catch (err) {
     console.error(err);
-    showToast("Lỗi thay đổi trạng thái loại trừ", "danger");
+    showToast(devText("Lỗi thay đổi trạng thái loại trừ"), "danger");
   }
 }
 
@@ -738,7 +758,7 @@ async function excludeRepo(repoName) {
 async function executeGitAction(action, paths) {
   if (state.isSyncingGit || paths.length === 0) return;
   state.isSyncingGit = true;
-  showToast(`Đang thực hiện ${action.toUpperCase()} cho ${paths.length} repos...`, "info");
+  showToast((devText("Đang thực hiện ") + (action.toUpperCase()) + devText(" cho ") + (paths.length) + devText(" repos...")), "info");
 
   try {
     const res = await window.pywebview.api.sync_git_repos(paths, action);
@@ -753,18 +773,18 @@ async function executeGitAction(action, paths) {
       const failedCount = res.failed_count !== undefined ? res.failed_count : (res.total - res.success_count);
 
       if (failedCount > 0) {
-        showToast(`Đồng bộ: ${res.success_count}/${res.total} thành công, ${failedCount} repo gặp sự cố`, "warning", 5000);
+        showToast((devText("Đồng bộ: ") + (res.success_count) + devText("/") + (res.total) + devText(" thành công, ") + (failedCount) + devText(" repo gặp sự cố")), "warning", 5000);
         openSyncErrorsModal(res);
       } else {
-        showToast(`Hoàn tất: Đã ${action.toUpperCase()} thành công cả ${res.total} repos`, "success");
+        showToast((devText("Hoàn tất: Đã ") + (action.toUpperCase()) + devText(" thành công cả ") + (res.total) + devText(" repos")), "success");
       }
       triggerGitScan();
     } else {
-      showToast(res.error || "Lỗi thực thi Git action", "danger");
+      showToast(res.error || devText("Lỗi thực thi Git action"), "danger");
     }
   } catch (err) {
     console.error(err);
-    showToast("Lỗi thực thi Git action", "danger");
+    showToast(devText("Lỗi thực thi Git action"), "danger");
   } finally {
     state.isSyncingGit = false;
   }
@@ -789,18 +809,18 @@ function openSyncErrorsModal(syncResponse) {
   const retryBtn = document.getElementById("btn-retry-failed-sync");
 
   if (errors.length === 0) {
-    if (titleEl) titleEl.textContent = "Kết quả Đồng bộ Git";
+    if (titleEl) titleEl.textContent = devText("Kết quả Đồng bộ Git");
     if (iconEl) iconEl.style.color = "var(--color-success)";
     if (summaryEl) {
-      summaryEl.innerHTML = `<span style="color: var(--color-success);">Hoàn tất: Đã đồng bộ thành công cả ${syncResponse.total || results.length} repositories.</span>`;
+      summaryEl.innerHTML = `<span style="color: var(--color-success);"><span data-ui-copy="m_43655afcabba">Hoàn tất: Đã đồng bộ thành công cả </span>${syncResponse.total || results.length} repositories.</span>`;
     }
     if (listEl) listEl.innerHTML = "";
     if (retryBtn) retryBtn.style.display = "none";
   } else {
-    if (titleEl) titleEl.textContent = `Phát hiện Lỗi Đồng bộ Git (${errors.length} repo)`;
+    if (titleEl) titleEl.textContent = (devText("Phát hiện Lỗi Đồng bộ Git (") + (errors.length) + devText(" repo)"));
     if (iconEl) iconEl.style.color = "var(--color-danger)";
     if (summaryEl) {
-      summaryEl.innerHTML = `Đồng bộ: <strong>${syncResponse.success_count || (syncResponse.total - errors.length)}/${syncResponse.total || results.length}</strong> repos thành công. Có <strong style="color: var(--color-danger);">${errors.length}</strong> repository gặp sự cố:`;
+      summaryEl.innerHTML = `<span data-ui-copy="m_9bd7e05309e8">Đồng bộ: </span><strong>${syncResponse.success_count || (syncResponse.total - errors.length)}/${syncResponse.total || results.length}</strong><span data-ui-copy="m_6e43c10c61f6"> repos thành công. Có </span><strong style="color: var(--color-danger);">${errors.length}</strong><span data-ui-copy="m_30775e37b24a"> repository gặp sự cố:</span>`;
     }
     if (retryBtn) retryBtn.style.display = "inline-flex";
 
@@ -809,7 +829,7 @@ function openSyncErrorsModal(syncResponse) {
         <div class="sync-error-card" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="badge badge-danger"><span class="badge-dot badge-dot-danger"></span>${escapeHtml(item.action.toUpperCase())} THẤT BẠI</span>
+              <span class="badge badge-danger"><span class="badge-dot badge-dot-danger"></span>${escapeHtml(item.action.toUpperCase())}<span data-ui-copy="m_61854dbfeb0b"> THẤT BẠI</span></span>
               <strong style="color: var(--text-primary); font-family: var(--font-mono); font-size: 13px;">${escapeHtml(item.name || item.path.split('/').pop())}</strong>
             </div>
             <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${escapeHtml(item.path)}</span>
@@ -855,26 +875,26 @@ function closeSyncErrorsModal() {
 
 function copySyncErrorsLog() {
   if (!state.currentErrorResults || state.currentErrorResults.length === 0) {
-    showToast("Không có log lỗi để sao chép", "info");
+    showToast(devText("Không có log lỗi để sao chép"), "info");
     return;
   }
 
   const lines = [
     "==================================================",
-    "BÁO CÁO LỖI ĐỒNG BỘ GIT — VXDevSync",
-    `Thời gian: ${new Date().toLocaleString()}`,
+    devText("BÁO CÁO LỖI ĐỒNG BỘ GIT — VXDevSync"),
+    (devText("Thời gian: ") + (new Date().toLocaleString()) + devText("")),
     "==================================================",
     ""
   ];
 
   state.currentErrorResults.forEach((item, idx) => {
     lines.push(`[${idx + 1}/${state.currentErrorResults.length}] Repo: ${item.name || item.path}`);
-    lines.push(`    Đường dẫn: ${item.path}`);
-    lines.push(`    Thao tác: ${item.action.toUpperCase()}`);
-    if (item.cmd) lines.push(`    Lệnh chạy: ${item.cmd}`);
-    lines.push(`    Tóm tắt: ${item.message}`);
+    lines.push((devText("    Đường dẫn: ") + (item.path) + devText("")));
+    lines.push((devText("    Thao tác: ") + (item.action.toUpperCase()) + devText("")));
+    if (item.cmd) lines.push((devText("    Lệnh chạy: ") + (item.cmd) + devText("")));
+    lines.push((devText("    Tóm tắt: ") + (item.message) + devText("")));
     if (item.raw_error) {
-      lines.push("    Chi tiết lỗi (Git Stderr):");
+      lines.push(devText("    Chi tiết lỗi (Git Stderr):"));
       lines.push(item.raw_error.split("\n").map(l => "      " + l).join("\n"));
     }
     lines.push("--------------------------------------------------");
@@ -882,9 +902,9 @@ function copySyncErrorsLog() {
 
   const fullText = lines.join("\n");
   navigator.clipboard.writeText(fullText).then(() => {
-    showToast("Đã sao chép toàn bộ log lỗi vào clipboard", "success");
+    showToast(devText("Đã sao chép toàn bộ log lỗi vào clipboard"), "success");
   }).catch(() => {
-    showToast("Không thể ghi vào clipboard", "danger");
+    showToast(devText("Không thể ghi vào clipboard"), "danger");
   });
 }
 
@@ -898,7 +918,7 @@ function retryFailedSyncRepos() {
   });
 
   if (activeErrors.length === 0) {
-    showToast("Tất cả các repository lỗi đều đã bị loại trừ", "info");
+    showToast(devText("Tất cả các repository lỗi đều đã bị loại trừ"), "info");
     closeSyncErrorsModal();
     return;
   }
@@ -921,7 +941,7 @@ function renderRecentWorkspacesDropdown() {
   const paths = (state.config.git_sync.recent_paths || []).slice(0, 5);
 
   if (paths.length === 0) {
-    container.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); padding: 4px 8px;">Chưa có thư mục gần đây</div>`;
+    container.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); padding: 4px 8px;"><span data-ui-copy="m_2fd134d92bdd">Chưa có thư mục gần đây</span></div>`;
     return;
   }
 
@@ -980,7 +1000,7 @@ function renderSkillsTable() {
   });
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Không tìm thấy kỹ năng nào</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;"><span data-ui-copy="m_5410e6a4f0ea">Không tìm thấy kỹ năng nào</span></td></tr>`;
     return;
   }
 
@@ -989,15 +1009,15 @@ function renderSkillsTable() {
 
     // Central Library status
     const libBadge = skill.in_library 
-      ? `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span>Có mặt</span>`
-      : `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span>Thiếu</span>`;
+      ? `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_29f843752d6e">Có mặt</span></span>`
+      : `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_ca7704d32d0b">Thiếu</span></span>`;
 
     // Render helper for agents
     const getAgentBadge = (agentKey) => {
       const p = skill.agents[agentKey];
-      if (!p || !p.exists) return `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span>Chưa có</span>`;
-      if (p.is_synced) return `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span>Đồng bộ</span>`;
-      return `<span class="badge badge-warning"><span class="badge-dot badge-dot-warning"></span>Lệch hash</span>`;
+      if (!p || !p.exists) return `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_bc2b97d69a94">Chưa có</span></span>`;
+      if (p.is_synced) return `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_9950cc180da2">Đồng bộ</span></span>`;
+      return `<span class="badge badge-warning"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_aedec7e35235">Lệch hash</span></span>`;
     };
 
     tr.innerHTML = `
@@ -1009,8 +1029,8 @@ function renderSkillsTable() {
       <td>${getAgentBadge("codex")}</td>
       <td>${getAgentBadge("claude")}</td>
       <td style="text-align: right;">
-        <button class="table-action-btn btn-danger-hover btn-delete-skill" title="Xóa triệt để" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;">
-          ${SVG_ICONS.trash} <span>Xóa</span>
+        <button class="table-action-btn btn-danger-hover btn-delete-skill" title="Xóa triệt để" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;" data-ui-title="m_ddcbe18380c3">
+          ${SVG_ICONS.trash} <span><span data-ui-copy="m_57435a5c8444">Xóa</span></span>
         </button>
       </td>
     `;
@@ -1029,22 +1049,22 @@ async function executeSkillsUnifiedSync() {
   state.isSyncingSkills = true;
 
   const hintElem = document.getElementById("skills-sync-hint");
-  hintElem.textContent = "Đang đồng bộ Kỹ năng và Quy tắc AGENTS.md / CLAUDE.md...";
-  showToast("Bắt đầu Đồng bộ Hợp nhất Kỹ năng & Rules...", "info");
+  hintElem.textContent = devText("Đang đồng bộ Kỹ năng và Quy tắc AGENTS.md / CLAUDE.md...");
+  showToast(devText("Bắt đầu Đồng bộ Hợp nhất Kỹ năng & Rules..."), "info");
 
   try {
     const res = await window.pywebview.api.sync_skills_unified();
     if (res.success) {
-      hintElem.textContent = `Đã gom ${res.upstream_count} skills mới, phân bổ sang ${res.downstream_agents.length} agents. ${res.git_msg || ""}`;
-      showToast("Đồng bộ Kỹ năng & Rules hoàn tất thành công!", "success");
+      hintElem.textContent = (devText("Đã gom ") + (res.upstream_count) + devText(" skills mới, phân bổ sang ") + (res.downstream_agents.length) + devText(" agents. ") + (res.git_msg || "") + devText(""));
+      showToast(devText("Đồng bộ Kỹ năng & Rules hoàn tất thành công!"), "success");
       triggerSkillsScan();
     } else {
-      hintElem.textContent = `Lỗi: ${res.error}`;
+      hintElem.textContent = (devText("Lỗi: ") + (res.error) + devText(""));
       showToast(res.error, "danger");
     }
   } catch (err) {
     console.error(err);
-    hintElem.textContent = "Lỗi thực thi đồng bộ kỹ năng";
+    hintElem.textContent = devText("Lỗi thực thi đồng bộ kỹ năng");
   } finally {
     state.isSyncingSkills = false;
   }
@@ -1067,19 +1087,19 @@ async function confirmCascadeDelete() {
   if (!skillName) return;
 
   closeCascadeDeleteModal();
-  showToast(`Đang xóa vĩnh viễn skill ${skillName}...`, "info");
+  showToast((devText("Đang xóa vĩnh viễn skill ") + (skillName) + devText("...")), "info");
 
   try {
     const res = await window.pywebview.api.delete_skills_cascade([skillName]);
     if (res.success) {
-      showToast(`Đã xóa ${skillName} và cập nhật GitHub thành công!`, "success");
+      showToast((devText("Đã xóa ") + (skillName) + devText(" và cập nhật GitHub thành công!")), "success");
       triggerSkillsScan();
     } else {
-      showToast(res.error || "Lỗi xóa kỹ năng", "danger");
+      showToast(res.error || devText("Lỗi xóa kỹ năng"), "danger");
     }
   } catch (err) {
     console.error(err);
-    showToast("Lỗi kết nối khi xóa skill", "danger");
+    showToast(devText("Lỗi kết nối khi xóa skill"), "danger");
   }
 }
 
@@ -1087,60 +1107,78 @@ async function confirmCascadeDelete() {
 // SETTINGS MODAL
 // ==========================================
 
+const settingsDraftFields = new Map();
+const settingsDraftIds = ['setting-default-tab', 'setting-scan-path', 'setting-max-depth', 'setting-skills-lib', 'setting-git-repo'];
+function captureSettingsDraft() {
+  for (const id of settingsDraftIds) {
+    const input = document.getElementById(id);
+    if (input) settingsDraftFields.set(id, input.value);
+  }
+}
+function restoreSettingsDraft() {
+  for (const [id, value] of settingsDraftFields) {
+    const input = document.getElementById(id);
+    if (input) input.value = value; // Property assignment preserves paths, quotes and HTML characters.
+  }
+}
+
 function openSettingsModal() {
+  if (!document.getElementById('modal-settings').classList.contains('active')) {
+    state.settingsReturnFocus = document.activeElement;
+    settingsDraftFields.clear();
+    document.getElementById('settings-tab-content').replaceChildren();
+  }
   document.getElementById("modal-settings").classList.add("active");
   renderSettingsTabContent(state.activeSettingsTab);
+  document.querySelector(`[data-settings-tab="${state.activeSettingsTab}"]`)?.focus();
 }
 
 function closeSettingsModal() {
   document.getElementById("modal-settings").classList.remove("active");
+  const previous = state.settingsReturnFocus;
+  state.settingsReturnFocus = null;
+  if (previous?.isConnected) previous.focus();
 }
 
 function renderSettingsTabContent(tabKey) {
+  captureSettingsDraft();
   const area = document.getElementById("settings-tab-content");
   const cfg = state.config;
+  const vi = cfg.general.lang !== 'en';
+  const labels = {general:vi?'Chung':'General','git-sync':'Git Multi-Sync','skills-sync':'Skills Auto-Sync',updates:vi?devText("Cập nhật"):'Updates',about:vi?devText("Giới thiệu"):'About',support:vi?devText("Ủng hộ tác giả"):'Support Author'};
+  document.querySelectorAll('[data-settings-tab]').forEach(button => {button.querySelector('span').textContent = labels[button.dataset.settingsTab];button.classList.toggle('is_active',button.dataset.settingsTab===tabKey);});
+  document.getElementById('settings-title').textContent = 'VXDevSync Settings';
+  document.getElementById('btn-settings-reset').innerHTML = window.VXSettingsUI.reset({language:vi?'vi':'en'});
+  document.getElementById('btn-settings-save').textContent = ['general','updates','about','support'].includes(tabKey) ? (vi?devText("Đóng"):'Close') : (vi?devText("Lưu & Đóng"):'Save & Close');
 
   if (tabKey === "general") {
-    area.innerHTML = `
-      <section class="settings-description settings-form-section"><h4 class="settings-section-title">Giao diện & màu sắc</h4>
-        <div class="settings-choice-grid">
-          <label class="settings-choice"><input type="radio" name="setting-theme" value="dark" ${cfg.general.theme === "dark" ? "checked" : ""}>Dark Navy</label>
-          <label class="settings-choice"><input type="radio" name="setting-theme" value="light" ${cfg.general.theme === "light" ? "checked" : ""}>Light Clean</label>
-        </div>
-      </section>
-      <section class="settings-description settings-form-section"><h4 class="settings-section-title">Ngôn ngữ</h4>
-        <div class="settings-radio-row">
-          <label><input type="radio" name="setting-lang" value="vi" ${cfg.general.lang === "vi" ? "checked" : ""}>Tiếng Việt</label>
-          <label><input type="radio" name="setting-lang" value="en" ${cfg.general.lang === "en" ? "checked" : ""}>English</label>
-        </div>
-      </section>
-      <section class="settings-description settings-form-section"><h4 class="settings-section-title">Khi khởi động</h4>
-        <label class="form-label" for="setting-default-tab">Tab mặc định</label>
+    area.innerHTML = window.VXSettingsUI.general({language: vi?'vi':'en',theme:cfg.general.theme,themes:['dark','light']});
+  } else if (tabKey === "git-sync") {
+    area.innerHTML = `      <section class="settings-description settings-form-section"><h4 class="settings-section-title">${updateText('Khi khởi động','Startup')}</h4>
+        <label class="form-label" for="setting-default-tab">${updateText('Tab mặc định','Default tab')}</label>
         <select class="form-input settings-compact-select" id="setting-default-tab">
           <option value="git_sync" ${cfg.general.default_tab === "git_sync" ? "selected" : ""}>Git Multi-Sync</option>
           <option value="skills_sync" ${cfg.general.default_tab === "skills_sync" ? "selected" : ""}>Skills Auto-Sync</option>
         </select>
-      </section>`;
-  } else if (tabKey === "git-sync") {
-    area.innerHTML = `
+      </section>
       <div class="form-group">
-        <label class="form-label settings-section-title">Thư mục Workspace Quét Mặc định (scan_path):</label>
+        <label class="form-label settings-section-title"><span data-ui-copy="m_1b31b0f469fb">Thư mục Workspace Quét Mặc định (scan_path):</span></label>
         <div class="form-input-row">
           <input type="text" class="form-input" id="setting-scan-path" value="${escapeHtml(cfg.git_sync.scan_path)}">
-          <button class="btn-secondary" id="btn-browse-scan-path">Duyệt...</button>
+          <button class="btn-secondary" id="btn-browse-scan-path"><span data-ui-copy="m_7e8f43a90dc3">Duyệt...</span></button>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label settings-section-title">Độ sâu quét tối đa (max_depth):</label>
+        <label class="form-label settings-section-title"><span data-ui-copy="m_0a20de39cb24">Độ sâu quét tối đa (max_depth):</span></label>
         <input type="number" class="form-input" id="setting-max-depth" value="${escapeHtml(cfg.git_sync.max_depth)}" min="1" max="10">
       </div>
       <div class="form-group">
-        <label class="form-label settings-section-title">Danh sách Thư mục Loại trừ (Ignore List):</label>
+        <label class="form-label settings-section-title"><span data-ui-copy="m_ff8c56f9c8d3">Danh sách Thư mục Loại trừ (Ignore List):</span></label>
         <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 6px; max-height: 120px; overflow-y: auto;" id="setting-ignore-container">
           ${cfg.git_sync.ignore_list.map(item => `
             <div style="display: flex; justify-content: space-between; padding: 3px 6px; font-size: 11px;">
               <span>${escapeHtml(item)}</span>
-              <button class="table-action-btn btn-danger-hover btn-remove-ignore" data-ignore="${escapeHtml(item)}" title="Xóa khỏi danh sách loại trừ">
+              <button class="table-action-btn btn-danger-hover btn-remove-ignore" data-ignore="${escapeHtml(item)}" title="Xóa khỏi danh sách loại trừ" data-ui-title="m_36eddcc61b97">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1150,8 +1188,8 @@ function renderSettingsTabContent(tabKey) {
           `).join("")}
         </div>
         <div class="form-input-row" style="margin-top: 6px;">
-          <input type="text" class="form-input" id="setting-new-ignore" placeholder="Nhập tên thư mục bỏ qua...">
-          <button class="btn-secondary" id="btn-add-ignore">+ Thêm</button>
+          <input type="text" class="form-input" id="setting-new-ignore" placeholder="Nhập tên thư mục bỏ qua..." data-ui-placeholder="m_f17171a95099">
+          <button class="btn-secondary" id="btn-add-ignore"><span data-ui-copy="m_48ae74d5d69c">+ Thêm</span></button>
         </div>
       </div>
     `;
@@ -1174,14 +1212,14 @@ function renderSettingsTabContent(tabKey) {
             if (r) {
               r.is_ignored = true;
               r.sync_state = "IGNORED";
-              r.suggested_action = "Đã loại trừ";
+              r.suggested_action = devText("Đã loại trừ");
               state.selectedRepoPaths.delete(r.path);
             }
             renderSettingsTabContent("git-sync");
             updateSelectionUI();
             updateGitCounts();
             renderGitReposTable();
-            showToast(`Đã thêm "${val}" vào danh sách loại trừ`, "info");
+            showToast((devText("Đã thêm \"") + (val) + devText("\" vào danh sách loại trừ")), "info");
           }
         } catch (err) {
           console.error(err);
@@ -1204,7 +1242,7 @@ function renderSettingsTabContent(tabKey) {
             updateSelectionUI();
             updateGitCounts();
             renderGitReposTable();
-            showToast(`Đã xóa "${item}" khỏi danh sách loại trừ`, "info");
+            showToast((devText("Đã xóa \"") + (item) + devText("\" khỏi danh sách loại trừ")), "info");
             triggerGitScan();
           }
         } catch (err) {
@@ -1215,18 +1253,18 @@ function renderSettingsTabContent(tabKey) {
   } else if (tabKey === "skills-sync") {
     area.innerHTML = `
       <div class="form-group">
-        <label class="form-label settings-section-title">Thư mục Central Skills Library (skills_lib):</label>
+        <label class="form-label settings-section-title"><span data-ui-copy="m_e175cd3e49b3">Thư mục Central Skills Library (skills_lib):</span></label>
         <div class="form-input-row">
           <input type="text" class="form-input" id="setting-skills-lib" value="${escapeHtml(cfg.skills_sync.skills_lib)}">
-          <button class="btn-secondary" id="btn-browse-skills-lib">Duyệt...</button>
+          <button class="btn-secondary" id="btn-browse-skills-lib"><span data-ui-copy="m_7e8f43a90dc3">Duyệt...</span></button>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label settings-section-title">Git Remote URL (Tùy chọn, để trống nếu dùng Offline):</label>
+        <label class="form-label settings-section-title"><span data-ui-copy="m_cc07b027db15">Git Remote URL (Tùy chọn, để trống nếu dùng Offline):</span></label>
         <input type="text" class="form-input" id="setting-git-repo" value="${escapeHtml(cfg.skills_sync.git_repo)}" placeholder="https://github.com/username/my_skills_library.git">
       </div>
       <div class="form-group">
-        <label class="form-label settings-section-title">Quản lý Kỹ năng đã Xóa (Tombstone Manifest):</label>
+        <label class="form-label settings-section-title"><span data-ui-copy="m_97f61b5709bd">Quản lý Kỹ năng đã Xóa (Tombstone Manifest):</span></label>
         <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 6px; max-height: 120px; overflow-y: auto;">
           ${(cfg.skills_sync.deleted_skills || []).length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px;">Chưa có kỹ năng nào bị khai tử</div>' : ''}
           ${(cfg.skills_sync.deleted_skills || []).map(item => `
@@ -1249,7 +1287,7 @@ function renderSettingsTabContent(tabKey) {
             const remoteRes = await window.pywebview.api.get_git_remote_url(res.path);
             if (remoteRes && remoteRes.success && remoteRes.url) {
               repoInput.value = remoteRes.url;
-              showToast("Đã tự động nhận diện Git Remote URL từ thư mục", "info");
+              showToast(devText("Đã tự động nhận diện Git Remote URL từ thư mục"), "info");
             }
           } catch (_) {}
         }
@@ -1261,92 +1299,46 @@ function renderSettingsTabContent(tabKey) {
         const skillName = e.currentTarget.getAttribute("data-skill");
         await window.pywebview.api.restore_skill(skillName);
         cfg.skills_sync.deleted_skills = cfg.skills_sync.deleted_skills.filter(x => x.name !== skillName);
-        showToast(`Đã phục hồi ${skillName} khỏi danh sách Tombstone`, "success");
+        showToast((devText("Đã phục hồi ") + (skillName) + devText(" khỏi danh sách Tombstone")), "success");
         renderSettingsTabContent("skills-sync");
         triggerSkillsScan();
       });
     });
   } else if (tabKey === "updates") {
-    area.innerHTML = `
-      <h4 class="settings-section-title">Cập nhật ứng dụng</h4>
-      <div class="settings-info-card">
-        <strong>Phiên bản hiện tại: v<span id="settings-current-version"></span></strong>
-        <p id="update-status">Kiểm tra bản mới và cài cập nhật khi công việc đã hoàn tất.</p>
-        <button id="check-app-update" class="btn-secondary">Kiểm tra cập nhật</button>
-        <button id="install-app-update" class="btn-secondary" hidden>Cài và khởi động lại</button>
-      </div>`;
-    document.getElementById("settings-current-version").textContent = cfg.version;
-    const checkButton = document.getElementById("check-app-update");
-    const installButton = document.getElementById("install-app-update");
-    const status = document.getElementById("update-status");
-    checkButton.onclick = async () => {
-      checkButton.disabled = true;
-      installButton.hidden = true;
-      status.textContent = "Đang kiểm tra...";
-      try {
-        const result = await window.pywebview.api.check_updates();
-        status.textContent = result.success ? (result.available ? `Có phiên bản ${result.version}` : "Bạn đang dùng bản mới nhất") : result.error;
-        installButton.hidden = !(result.success && result.available);
-      } catch (error) { status.textContent = "Không kiểm tra được cập nhật; hãy thử lại."; }
-      finally { checkButton.disabled = false; }
-    };
-    installButton.onclick = async () => {
-      if (state.isSyncingGit || state.isSyncingSkills || state.isScanningGit) {
-        status.textContent = "Hãy đợi tác vụ đồng bộ hoàn tất trước khi cập nhật.";
-        return;
-      }
-      checkButton.disabled = true;
-      installButton.disabled = true;
-      status.textContent = "Đang tải gói cập nhật, xác thực chữ ký và giải nén (có thể mất 15-30 giây)...";
-      try {
-        const updatePromise = window.pywebview.api.install_update();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Quá thời gian chờ phản hồi cập nhật (120s)")), 120000)
-        );
-        const result = await Promise.race([updatePromise, timeoutPromise]);
-        if (result && result.success) {
-          status.textContent = "Đã chuẩn bị cập nhật thành công. Ứng dụng đang khởi động lại...";
-          showToast("Đã chuẩn bị cập nhật thành công. Đang khởi động lại...", "info");
-        } else {
-          status.textContent = result?.error || "Cập nhật thất bại; bạn có thể thử lại.";
-          checkButton.disabled = false;
-          installButton.disabled = false;
-        }
-      } catch (error) {
-        status.textContent = "Cập nhật thất bại: " + (error?.message || "Lỗi kết nối; hãy thử lại.");
-        checkButton.disabled = false;
-        installButton.disabled = false;
-      }
-    };
+    const content = `<div class="vx_settings_update_status"><p id="update-status" role="status"></p><button id="check-app-update" class="vx_settings_primary">${updateText('Kiểm tra cập nhật','Check for updates')}</button><button id="install-app-update" class="vx_settings_primary" hidden>${updateText('Cập nhật & khởi động lại','Update & restart')}</button></div>`;
+    area.innerHTML = window.VXSettingsUI.updates({language:vi?'vi':'en',appVersion:cfg.version,content});
+    document.getElementById("check-app-update").onclick = () => runUpdateAction(false);
+    document.getElementById("install-app-update").onclick = () => runUpdateAction(true);
+    paintUpdateUI();
   } else if (tabKey === "about") {
-    area.innerHTML = `
-      <div class="settings-app-card">
-        <div class="settings-app-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 6-6 6 6 6m8-12 6 6-6 6"/></svg></div>
-        <div><h2>VXDevSync <span class="settings-version" id="settings-about-version"></span></h2>
-        <p class="settings-tagline">Đồng bộ Git và thư viện kỹ năng AI</p><p class="settings-author">Bùi Việt Linh</p>
-        <a href="https://github.com/linhbv94" target="_blank" rel="noopener noreferrer">GitHub · Bùi Việt Linh ↗</a></div>
-      </div>
-      <section class="settings-description"><h4 class="settings-section-title">Về VXDevSync</h4>
-        <p>Quản lý trạng thái và đồng bộ nhiều Git repository trong cùng workspace. Đồng bộ thư viện kỹ năng và quy tắc cho Antigravity, Codex và Claude Code từ một giao diện chung.</p>
-      </section>
-      <section class="settings-description"><strong>Công nghệ nền tảng:</strong><ul><li>Python + pywebview (WebView native)</li><li>HTML/CSS/JavaScript</li><li>Git CLI · thư viện kỹ năng dùng chung</li></ul></section>`;
-    document.getElementById("settings-about-version").textContent = `v${cfg.version}`;
+    area.innerHTML = window.VXSettingsUI.about({language:vi?'vi':'en',appName:'VXDevSync',appVersion:cfg.version,
+      tagline:updateText('Đồng bộ Git và thư viện kỹ năng AI','Sync Git repositories and AI skills'),
+      description:updateText('Quản lý trạng thái và đồng bộ nhiều Git repository trong cùng workspace. Đồng bộ thư viện kỹ năng và quy tắc cho Antigravity, Codex và Claude Code từ một giao diện chung.','Inspect and sync Git repositories in a workspace. Share skills and rules across Antigravity, Codex and Claude Code from one interface.'),
+      repository:'https://github.com/linhbv94/VXDevSync'});
   } else if (tabKey === "support") {
-    area.innerHTML = `
-      <section class="settings-support-banner">
-        <div class="settings-coffee-icon" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8h12v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Zm12 1h2a3 3 0 0 1 0 6h-2M7 2v3m5-3v3"/></svg></div>
-        <div><h3>Mời tôi ly cà phê</h3>
-        <p>Cảm ơn bạn đã sử dụng VXDevSync! Nếu ứng dụng hữu ích, bạn có thể mời tôi một ly cà phê để tiếp thêm động lực phát triển.</p></div>
-      </section>
-      <section class="settings-qr-card">
-        <div class="settings-qr-paper"><img src="assets/support_qr.png" alt="Mã VietQR ủng hộ tác giả, dùng chung với VXMedia"><span>VietQR • Napas247</span></div>
-        <p>Mở ứng dụng ngân hàng và quét mã QR để mời tác giả một ly cà phê. Cảm ơn sự ủng hộ của bạn!</p>
-      </section>`;
+    area.innerHTML = window.VXSettingsUI.support({language:vi?'vi':'en',qrSource:'assets/support_qr.png'});
+    const image=area.querySelector('img');
+    image.addEventListener('error',()=>{const placeholder=document.createElement('div');placeholder.className='vx_settings_qr_placeholder';placeholder.textContent=window.VXSettingsUI.copy(vi?'vi':'en').qrMissing;image.replaceWith(placeholder);},{once:true});
   }
+
+  restoreSettingsDraft();
 }
 
-async function saveSettingsFromModal() {
-  const cfg = state.config;
+document.addEventListener('change', async event => {
+  if(!event.target.matches('[name="setting-theme"], [name="setting-lang"]')) return;
+  const previous = {...state.config.general};
+  state.config.general[event.target.name === 'setting-lang' ? 'lang' : 'theme'] = event.target.value;
+  try {
+    const result = await window.pywebview.api.save_config({general: state.config.general});
+    if(!result.success) throw Error(result.error || 'save_config failed');
+    updateUIFromConfig(); renderSettingsTabContent('general');
+  } catch(error) {state.config.general = previous; renderSettingsTabContent('general'); showToast(String(error), 'danger');}
+});
+
+async function saveSettingsFromModal(closeAfter = true) {
+  if(['general','updates','about','support'].includes(state.activeSettingsTab)) {closeSettingsModal();return;}
+
+  const cfg = structuredClone(state.config);
   
   // Read current fields if available
   const langEl = document.querySelector('[name="setting-lang"]:checked');
@@ -1355,20 +1347,13 @@ async function saveSettingsFromModal() {
   const themeEl = document.querySelector('[name="setting-theme"]:checked');
   if (themeEl) cfg.general.theme = themeEl.value;
 
-  const tabEl = document.getElementById("setting-default-tab");
-  if (tabEl) cfg.general.default_tab = tabEl.value;
-
-  const scanEl = document.getElementById("setting-scan-path");
-  if (scanEl) cfg.git_sync.scan_path = scanEl.value;
-
-  const depthEl = document.getElementById("setting-max-depth");
-  if (depthEl) cfg.git_sync.max_depth = parseInt(depthEl.value, 10) || 3;
-
-  const libEl = document.getElementById("setting-skills-lib");
-  if (libEl) cfg.skills_sync.skills_lib = libEl.value;
-
-  const repoEl = document.getElementById("setting-git-repo");
-  if (repoEl) cfg.skills_sync.git_repo = repoEl.value;
+  captureSettingsDraft();
+  const fields = settingsDraftFields;
+  if (fields.has('setting-default-tab')) cfg.general.default_tab = fields.get('setting-default-tab');
+  if (fields.has('setting-scan-path')) cfg.git_sync.scan_path = fields.get('setting-scan-path');
+  if (fields.has('setting-max-depth')) cfg.git_sync.max_depth = parseInt(fields.get('setting-max-depth'), 10) || 3;
+  if (fields.has('setting-skills-lib')) cfg.skills_sync.skills_lib = fields.get('setting-skills-lib');
+  if (fields.has('setting-git-repo')) cfg.skills_sync.git_repo = fields.get('setting-git-repo');
 
   try {
     const res = await window.pywebview.api.save_config({
@@ -1377,21 +1362,25 @@ async function saveSettingsFromModal() {
       skills_sync: cfg.skills_sync
     });
     if (res.success) {
-      showToast("Đã lưu cài đặt", "success");
+      state.config = cfg;
+      showToast(devText("Đã lưu cài đặt"), "success");
       updateUIFromConfig();
-      closeSettingsModal();
-    }
+      if(closeAfter !== false) closeSettingsModal();
+    } else {throw Error(res.error || "save_config failed");}
   } catch (err) {
-    console.error(err);
+    showToast(updateText("Chưa lưu được cài đặt: ","Settings were not saved: ")+String(err),"danger");
   }
 }
 
-function resetSettingsDefault() {
-  if (confirm("Khôi phục cài đặt mặc định?")) {
-    state.config.git_sync.max_depth = 3;
-    state.config.git_sync.max_concurrency = 8;
-    renderSettingsTabContent(state.activeSettingsTab);
-  }
+async function resetSettingsDefault() {
+  if(!confirm(updateText('Khôi phục các tùy chọn mặc định? Thư mục và ngôn ngữ được giữ nguyên.', 'Reset preferences? Folders and language will be preserved.'))) return;
+  const cfg = structuredClone(state.config);
+  cfg.general.theme='dark';cfg.general.default_tab='git_sync';cfg.git_sync.max_depth=3;cfg.git_sync.max_concurrency=8;
+  try {
+    const result=await window.pywebview.api.save_config({general:cfg.general,git_sync:cfg.git_sync});
+    if(!result.success) throw Error(result.error || 'save_config failed');
+    state.config=cfg;updateUIFromConfig();renderSettingsTabContent(state.activeSettingsTab);
+  }catch(error){showToast(String(error),'danger');}
 }
 
 // Onboarding Modal
@@ -1420,13 +1409,13 @@ async function finishOnboarding() {
       document.getElementById("modal-onboarding").classList.remove("active");
       updateUIFromConfig();
       triggerGitScan();
-      showToast("Thiết lập ban đầu hoàn tất!", "success");
+      showToast(devText("Thiết lập ban đầu hoàn tất!"), "success");
     } else {
-      showToast(res?.error || "Không thể lưu cấu hình khởi tạo", "danger");
+      showToast(res?.error || devText("Không thể lưu cấu hình khởi tạo"), "danger");
     }
   } catch (err) {
     console.error(err);
-    showToast("Không thể lưu cấu hình khởi tạo", "danger");
+    showToast(devText("Không thể lưu cấu hình khởi tạo"), "danger");
   }
 }
 
@@ -1447,3 +1436,62 @@ function showToast(message, type = "info", duration = 3000) {
     setTimeout(() => toast.remove(), 200);
   }, duration);
 }
+
+// One UI owner for startup notice and Settings. Progress is read from the engine.
+let updateSnapshot = {status:'idle',noticeVisible:false};
+let updateBusy = false;
+let updateActionError = null;
+let updatePollBusy = false;
+let noticePaintSignature = null;
+const dismissedUpdateVersions = new Set();
+function updateText(vi, en) {return state.config?.general.lang === 'en' ? en : vi;}
+function updateMessage() {
+  const v = updateSnapshot.version || '';
+  const phase = updateSnapshot.status;
+  const messages = {
+    idle:updateText('Kiểm tra phiên bản mới.', 'Check for a new version.'),
+    checking:updateText('Đang kiểm tra…', 'Checking for updates…'),
+    available:updateText('Có phiên bản mới', 'Update available')+' v'+v,
+    current:updateText('Bạn đang dùng phiên bản mới nhất.', 'You are up to date.'),
+    downloading:updateText('Đang tải cập nhật', 'Downloading update')+(Number.isFinite(updateSnapshot.progress)?' '+Math.round(updateSnapshot.progress)+'%':'…'),
+    verifying:updateText('Đang xác minh…', 'Verifying…'),
+    installing:updateText('Đang cài cập nhật…', 'Installing update…'),
+    handed_off:updateText('Đang khởi động lại…', 'Restarting…'),
+    error:updateText('Cập nhật chưa hoàn tất. Hãy thử lại.', 'Update failed. Please try again.')
+  };return messages[phase] || phase;
+}
+function paintUpdateUI() {
+  const working = updateBusy || ['checking','downloading','verifying','installing','handed_off'].includes(updateSnapshot.status);
+  const status = document.getElementById('update-status'); if(status) status.textContent = updateMessage();
+  const check = document.getElementById('check-app-update'); if(check) {check.disabled=working;check.textContent=updateText('Kiểm tra cập nhật','Check for updates');}
+  const install = document.getElementById('install-app-update'); if(install) {install.hidden=updateSnapshot.status!=='available';install.disabled=working;install.textContent=updateText('Cập nhật & khởi động lại','Update & restart');}
+  const signature=JSON.stringify([updateSnapshot,updateBusy,state.config?.general.lang,[...dismissedUpdateVersions]]);
+  if(signature === noticePaintSignature) return;
+  noticePaintSignature = signature;
+  let notice = document.getElementById('app-update-notice');
+  if(!notice) {notice=document.createElement('section');notice.id='app-update-notice';notice.setAttribute('aria-label','Application updates');document.body.append(notice);}
+  notice.hidden=!(updateSnapshot.noticeVisible && !dismissedUpdateVersions.has(updateSnapshot.version)) && !['downloading','verifying','installing','handed_off'].includes(updateSnapshot.status);
+  notice.replaceChildren();
+  const message=document.createElement('p');message.setAttribute('role','status');message.textContent=updateMessage();notice.append(message);
+  if(updateSnapshot.error) {const details=document.createElement('details'), summary=document.createElement('summary');summary.textContent=updateText('Chi tiết lỗi','Error details');details.append(summary,document.createTextNode(String(updateSnapshot.error)));notice.append(details);}
+  const button=document.createElement('button');button.className='btn-primary';button.disabled=working;button.textContent=updateSnapshot.status==='available'?updateText('Cập nhật & khởi động lại','Update & restart'):updateText('Thử lại','Retry');button.onclick=()=>runUpdateAction(updateSnapshot.status==='available');notice.append(button);
+  if(!working){const close=document.createElement('button');close.className='btn-secondary';close.textContent=updateText('Để sau','Later');close.onclick=()=>{dismissedUpdateVersions.add(updateSnapshot.version);paintUpdateUI();};notice.append(close);}
+}
+async function pollUpdateUI() {
+  if(updatePollBusy) return;
+  updatePollBusy=true;
+  try {
+    const snapshot=await window.pywebview.api.get_update_status();
+    if(snapshot.success) updateSnapshot=updateActionError ? {...snapshot,status:'error',error:updateActionError,noticeVisible:true} : snapshot;
+    paintUpdateUI();
+  }catch(error){console.warn(error);}finally{updatePollBusy=false;}
+}
+async function runUpdateAction(install) {
+  if(updateBusy) return;
+  if(install && (state.isSyncingGit || state.isSyncingSkills || state.isScanningGit)) {showToast(updateText('Hãy đợi tác vụ hoàn tất trước khi cập nhật.','Wait for the active task to finish before updating.'),'info');return;}
+  updateActionError=null;updateBusy=true;paintUpdateUI();
+  try {const result=await window.pywebview.api[install?'install_update':'check_updates']();if(!result.success) throw Error(result.error || 'Update failed');await pollUpdateUI();}
+  catch(error){updateActionError=String(error);updateSnapshot={...updateSnapshot,status:'error',error:updateActionError,noticeVisible:true};}
+  finally{updateBusy=false;paintUpdateUI();}
+}
+function startUpdateUI(){void runUpdateAction(false);setInterval(pollUpdateUI,1000);}

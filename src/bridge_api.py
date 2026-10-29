@@ -36,6 +36,7 @@ class BridgeApi:
         self._mutation_lock = threading.Lock()
         self._shutdown_pending = False
         self._updater = None
+        self._updater_creation_lock = threading.Lock()
         self._config_manager = config_manager
         self._window_getter = window_getter
         self._window_maximized = False
@@ -478,25 +479,36 @@ class BridgeApi:
         return {"success": True, "restored_skill": skill_name, "repo_tombstone_removed": removed,
                 "git_committed": committed, "git_pushed": pushed, "git_msg": message}
 
+    def _get_updater(self):
+        with self._updater_creation_lock:
+            if self._updater is None:
+                from src.updater import AppUpdater
+                self._updater = AppUpdater()
+            return self._updater
+
+    def set_ui_language(self, lang):
+        from .window_chrome import sync_app_menu
+        window = self._window_getter() if self._window_getter else None
+        sync_app_menu(window, 'en' if lang == 'en' else 'vi')
+        return {"success": True}
+
+    def get_update_status(self):
+        return {"success": True, **self._get_updater().snapshot()}
+
     def check_updates(self):
         try:
-            from src.updater import AppUpdater
-            if self._updater is None:
-                self._updater = AppUpdater()
-            return self._updater.check()
+            return self._get_updater().check()
         except Exception as error:
             return {"success": False, "error": "Chưa kiểm tra được cập nhật: " + str(error)}
 
     @exclusive_mutation
     def install_update(self):
         try:
-            from src.updater import AppUpdater
-            if self._updater is None:
-                self._updater = AppUpdater()
+            updater = self._get_updater()
             window = self._window_getter() if self._window_getter else None
             if window is None:
                 return {"success": False, "error": "Không có cửa sổ để khởi động lại"}
-            result = self._updater.install()
+            result = updater.install()
             if not result.get("success"):
                 return result
 

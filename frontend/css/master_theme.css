@@ -86,3 +86,5 @@ input, button, select, textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
+
+:root[data-theme="light"] {--bg-app:#f8fafc;--bg-panel:#fff;--bg-surface:#fff;--bg-surface-hover:#e2e8f0;--bg-dropdown:#fff;--text-primary:#0f172a;--text-secondary:#334155;--text-muted:#64748b;--border-subtle:#cbd5e0;--border-medium:#94a3b8;}

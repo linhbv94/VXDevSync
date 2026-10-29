@@ -23,7 +23,7 @@ Trong quy trình làm việc thực tế với AI coding agents (`Antigravity`, 
   - Quản lý danh sách repository với bảng dữ liệu tương tác: Checkbox chọn từng repo, bộ lọc trạng thái, quick action bar.
   - Quản lý danh mục Skills dạng Inventory ma trận: Trực quan hóa vị trí tồn tại của skill trên từng Agent, hỗ trợ xóa triệt để (Cascade Delete) kèm cơ chế chặn hồi sinh (Tombstone Manifest).
   - Gạt toggle bật/tắt từng AI Agent trực tiếp trên giao diện trong 1 click.
-- **Chuẩn hóa giao diện VXUtilities:** Kế thừa trọn vẹn quy chuẩn thiết kế [desktop_ui_standards.md](../../.agents/desktop_ui_standards.md) và [master_theme.md](../../_summary/master_theme.md).
+- **Chuẩn hóa giao diện VXUtilities:** Kế thừa trọn vẹn quy chuẩn thiết kế [desktop_ui_standards.md](../../../_summary/standard_docs/desktop_ui_standards.md) và [master_theme.md](../../../_summary/standard_docs/master_theme.md).
 
 ---
 

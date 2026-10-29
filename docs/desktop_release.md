@@ -13,3 +13,11 @@ Workflow release.yml tạo draft, test/build từng OS và ký/verify manifest. 
 Cài updater giữ backup app cũ để phục hồi; không xóa backup nếu chưa xác nhận bản mới chạy ổn. Cascade delete skills là thao tác xóa; gỡ tombstone không tự khôi phục nội dung file đã xóa. Không dùng các ca destructive trên dữ liệu thật để QA.
 
 CI fixture Windows phải clone đúng main, không dựa default branch của máy; cleanup Git readonly files có handler. Khi chỉ sửa QA/tooling sau tag: giữ nguyên tag/runtime/package inputs, workflow lấy allowlist fixture từ workflow SHA. Publish kiểm diff không đổi app, chỉ cho phép tooling/tests/docs; không áp dụng cơ chế này cho sửa runtime. Run thành công và bằng chứng package nằm trong review/evidence.
+
+## Build và self-test an toàn (2026-10-29)
+
+About icon (2026-10-30): nạp transparent icon.png512 và chuẩn hóa NSImage logical size512×512, không để DPI144 biến thành256pt khác muda/Tauri. Test_window_chrome có2native image tests, tách khỏi5window/menu tests cũ. Cần kiểm panel của bundle thực; image/source gate không thay visual VI/EN và Light/Dark.
+
+Chạy `python -m scripts.build_release` hoặc `python scripts/build_release.py`; `--app-only` chỉ tạo/kiểm app, không tạo lại DMG/archive. Không dùng archive cũ làm bằng chứng cho bundle mới. Tên silicon/intel lấy từ kiến trúc executable thực qua lipo; gói sai kiến trúc của cùng version được chuyển vào `build/stale_macos_*` để phục hồi, ngoài upload glob.
+
+`--self-test` phải chạy headless: kiểm dependency, TLS và public key mà không import Cocoa/AppKit backend, không khởi tạo GUI và không xác nhận updater launch receipt. Import backend Cocoa có thể đăng ký NSApplication và SIGABRT khi chạy trong build/background session. GUI smoke test là bước riêng trong phiên desktop; self-test PASS không thay bằng chứng runtime.

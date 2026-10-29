@@ -1,0 +1,16 @@
+/* Webview adapter only; common visual rules live in shared_settings_ui.css. */
+[data-vx-settings-webview] .vx_settings_ui {width:672px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100dvh - 32px);gap:0;padding:0;background:var(--vxs_bg);}
+[data-vx-settings-webview] .vx_settings_header {padding:0 24px;flex:0 0 56px;}
+[data-vx-settings-webview] .vx_settings_layout {flex:1;gap:0;}
+[data-vx-settings-webview] .vx_settings_nav {width:192px;padding:12px;gap:0;}
+[data-vx-settings-webview] .vx_settings_body {display:block;padding:24px;}
+[data-vx-settings-webview] .vx_settings_footer {flex:0 0 56px;padding:0 24px;}
+[data-vx-settings-webview] .vx_settings_reset {min-height:0;border:0;padding:0;}
+[data-vx-settings-webview] .vx_settings_primary {font-weight:600;}
+[data-vx-settings-webview] [hidden] {display:none!important;}
+
+/* Neutralize legacy app selectors, including the old amber Support tab. */
+[data-vx-settings-webview] .vx_settings_ui .vx_settings_tab {font:500 12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:0;transition:none;}
+[data-vx-settings-webview] .vx_settings_ui .vx_settings_tab:not(.is_active) {background:transparent;border-color:transparent;color:var(--vxs_muted);}
+[data-vx-settings-webview] .vx_settings_ui .vx_settings_tab.is_active {background:var(--vxs_active);border-color:#06b6d466;color:var(--vxs_active_text);font-weight:600;}
+[data-vx-settings-webview] #settings-title {font-size:16px;font-weight:600;line-height:24px;}

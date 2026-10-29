@@ -40,7 +40,7 @@ Một số scope sẽ lớn hơn hai bản CLI vì GUI gỡ được giới hạ
 | Nhóm | Tài liệu / mã nguồn |
 | :--- | :--- |
 | Quy tắc workspace | [AGENTS.md](../.agents/AGENTS.md) |
-| Chuẩn UI chung VX | [desktop_ui_standards.md](../.agents/desktop_ui_standards.md), [master_theme.md](../_summary/master_theme.md) |
+| Chuẩn UI chung VX | [desktop_ui_standards.md](../_summary/standard_docs/desktop_ui_standards.md), [master_theme.md](../_summary/standard_docs/master_theme.md) |
 | Skills Sync | [README](../zcli_skillssync/README.md), [main.py](../zcli_skillssync/main.py), [src](../zcli_skillssync/src/), [spec cũ](../zcli_skillssync/docs/spec/) |
 | Định hướng GUI Skills Sync trước đây | [06_phase_2_desktop_app.md](../zcli_skillssync/docs/spec/06_phase_2_desktop_app.md) |
 | Git Sync | [PRD](../zcli_gitsync/git_sync_prd.md), [src](../zcli_gitsync/src/), [spec cũ](../zcli_gitsync/docs/spec/) |

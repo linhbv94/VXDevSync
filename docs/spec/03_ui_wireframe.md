@@ -1,7 +1,7 @@
 # 03. Đặc tả Giao diện & Wireframes — VXDevSync
-Version: 1.5.0 — Ngày cập nhật: 2026-10-26
+Version: 1.6.0 — Ngày cập nhật: 2026-10-29
 
-Tài liệu này đặc tả toàn diện cấu trúc giao diện người dùng (UI/UX), bố cục màn hình (Layout Wireframes), quy chuẩn phím tắt và các tokens thiết kế của **VXDevSync**, tuân thủ nghiêm ngặt [desktop_ui_standards.md](../../../.agents/desktop_ui_standards.md) và [master_theme.md](../../../_summary/master_theme.md). Tuyệt đối tuân thủ quy chuẩn No-Emoji: 100% icon sử dụng vector SVG (Lucide style) và CSS LED Indicator Dots.
+Tài liệu này đặc tả toàn diện cấu trúc giao diện người dùng (UI/UX), bố cục màn hình (Layout Wireframes), quy chuẩn phím tắt và các tokens thiết kế của **VXDevSync**, tuân thủ nghiêm ngặt [desktop_ui_standards.md](../../../_summary/standard_docs/desktop_ui_standards.md) và [master_theme.md](../../../_summary/standard_docs/master_theme.md). Tuyệt đối tuân thủ quy chuẩn No-Emoji: 100% icon sử dụng vector SVG (Lucide style) và CSS LED Indicator Dots.
 
 ---
 
@@ -265,3 +265,43 @@ Tuân thủ nghiêm ngặt chuẩn cấu trúc Sidebar 2 nhóm của VXUtilities
 - About gồm card nhận diện với SVG code cùng app, version từ config, tagline/tác giả/link GitHub; card mô tả hai câu và card công nghệ dạng danh sách. Giữ link tác giả do chưa xác lập URL repo riêng.
 - Support dùng banner amber + icon Coffee SVG, card QR nền trắng208px theo VXMedia. Asset local `frontend/assets/support_qr.png` sao chép nguyên byte từ `vxmedia/src/assets/qr.png`; không còn URL sinh QR theo tài khoản/số tiền hard-code. Không cần Internet để tải QR.
 - QA: render6 template với fixture config; JS syntax đạt; SHA256 asset trùng VXMedia; screenshot browser About/Support đã xem. Nội dung Support cuộn trong panel, footer cố định. Chưa native runtime/save backend/Windows hoặc kiểm thử chuyển tiền (không thuộc phạm vi UI).
+
+
+## Đồng bộ UI suite — Codex tiếp quản ngày2026-10-29
+
+Theo [Settings](../../../_summary/standard_docs/settings_standards.md), [song ngữ](../../../_summary/standard_docs/bilingual_standards.md) và [updater](../../../_summary/standard_docs/auto_update_standards.md). Mục này cập nhật các mô tả cũ trái ranh giới General; không thay engine hoặc tự đánh dấu Specs ready/QA/release.
+
+| Tab / surface | Key / owner | Capability, apply và persist |
+|---|---|---|
+| Chung | `general.theme` | dark/light thực có; radio2cột, thay token surface/text và persist ngay qua save_config |
+| Chung | `general.lang` | vi/en; radio ngang, apply ngay cho Settings chung/update, rebuild menu AppKit |
+| Git | `general.default_tab`, `git_sync.*` | Startup thuộc tab Git; giữ Save & Close cho nháp nghiệp vụ; clone config trước save, lỗi không báo thành công |
+| Skills | `skills_sync.*` | Giữ thư mục/remote/agents/tombstones và các action thật |
+| Updates | `get_update_status`, `check_updates`, `install_update` | Một UI owner, poll snapshot đơn-flight; progress thật, CTA trực tiếp tại notice và Settings, không Promise.race120s giả kết thúc job |
+
+Common footer là Close ở General/Updates/About/Support, Save & Close chỉ cho nháp Git/Skills. Reset preferences giữ lang/path/remote/account; persist backend trước apply. Notice20px/max384/radius12/padding16, lỗi RPC giữ tới retry. Menu native dùng AppKit main-thread, native About có version thực/tác giả/GitHub, Settings⌘, dùng cùng router. HTML/JS Git/Skills/onboarding/toasts đã nối catalog vi/en trong frontend/js/ui_language.js: chỉ node/attribute gắn data-ui-copy mới được dịch; dynamic path/title và dữ liệu repository/skill được giữ nguyên. Native menu đã kiểm riêng vi→en→vi; packaged runtime/About/updater vẫn phải QA, chưa chứng nhận release.
+
+Bằng chứng/checks và giới hạn: [báo cáo Codex](../../../_summary/agents_handoff/suite_ui_codex_20261029_result.md). ST/BI/AU/TB native acceptance chỉ đạt khi có evidence phù hợp; source/build không tự đạt runtime.
+
+### QA native 2026-10-29 — menu dispatch
+
+Menu Settings/Workspace phải dispatch JavaScript ngoài AppKit main thread: pywebview chờ completion từ WebKit, gọi đồng bộ trong selector có thể deadlock. Giữ chung router với gear, không thay engine sync.
+
+Draft Git/Skills phải giữ khi đổi tab Settings hoặc locale/theme. Giữ trong bộ nhớ phiên modal; gán lại qua input.value để bảo toàn Unicode/HTML/quotes. General chỉ autosave general, không tự lưu draft đường dẫn. Save & Close ở tab engine mới ghi toàn bộ draft; lỗi lưu giữ nguyên modal/draft.
+
+## Cập nhật Feedback 2026-10-29 (Anti UI)
+- Native About panel: Bổ sung `ApplicationIcon` tường minh truyền từ `app.applicationIconImage()` vào `orderFrontStandardAboutPanelWithOptions_`, đồng bộ cấu trúc metadata version, tác giả và link GitHub theo mẫu VXSearch.
+- Settings Title: Duy trì tiêu đề không có icon bánh răng ('Cài đặt VXDevSync' / 'VXDevSync Settings') theo chuẩn Media.
+
+
+
+## Feedback20261029 — component Settings theo Media
+
+- [Hợp đồng chung](../../../_summary/standard_docs/settings_standards.md) và [nguồn component](../../../_summary/standard_codes/settings_ui/index.md) là nguồn chuẩn; không dùng ghi nhận "chỉ đổi header" ở lượt Anti đầu làm nghiệm thu các panel.
+- Title VXabc Settings, không gear. General Theme→Language, Updates/banner+state, About/identity+GitHub+description, Support/banner+copy Media+QR. Chỉ mode theme thật; dữ liệu/config/updater job giữ owner hiện có.
+- DevSync vendor webview helper + copy sinh + cùng CSS; Deck vendor helper SwiftUI + copy sinh, giữ popup và business bindings. Manifest và gate trước packaging bắt lỗi lệch nguồn.
+- Native visual, entry point, min-size/scroll/keyboard và update E2E cần evidence riêng; build/hash không tự đạt. Windows giữ SVG+tên rồi menu trái, gear trước đúng một cụm controls phải. Deck không thêm shell/menu không cần thiết.
+
+
+### About native — đính chính 2026-10-30
+Theo hợp đồng menu/About root: PNG trong suốt512×512 riêng app (không Dock squircle/default32), layout AppKit theo Search. Credits: Bùi Việt Linh → mô tả vi/en → GitHub URL; footer © 2026 Bùi Việt Linh. All rights reserved. Giữ version thật, không lặp build version. Cần QA bundle/native mới; không coi cargo check là visual PASS.

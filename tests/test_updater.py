@@ -147,3 +147,116 @@ class UpdaterTests(unittest.TestCase):
         mutation_res = api.save_config({"general": {"default_tab": "git_sync"}})
         self.assertFalse(mutation_res['success'])
         self.assertIn("khởi động lại", mutation_res['error'])
+
+class UpdaterControllerTests(unittest.TestCase):
+    def mac_fixture(self, root, ready_outside=False):
+        import plistlib
+        target=root/'VXDevSync.app'; stage=root/'.vxdevsync_update_fixture'/'VXDevSync.app'
+        for app, version in [(target,'1.0.2'),(stage,'1.0.3')]:
+            (app/'Contents').mkdir(parents=True)
+            with (app/'Contents/Info.plist').open('wb') as out:
+                plistlib.dump({'CFBundleIdentifier':APP_ID,'CFBundleShortVersionString':version},out)
+        (target/'marker').write_text('old'); (stage/'marker').write_text('new')
+        ready=(root/'outside_ready') if ready_outside else stage.parent/'ready.flag'
+        plan=stage.parent/'plan.json'
+        plan.write_text(json.dumps({'target':str(target),'stage':str(stage),'pid':999999,'ready_file':str(ready)}))
+        return target,stage,plan
+
+    def test_relaunch_error_and_timeout_restore_old_bundle(self):
+        import subprocess
+        from unittest.mock import patch,MagicMock
+        from src.updater import apply_mac_update
+        for timeout in [False,True]:
+            with self.subTest(timeout=timeout), tempfile.TemporaryDirectory() as folder:
+                root=Path(folder);target,stage,plan=self.mac_fixture(root)
+                kwargs={'side_effect':subprocess.TimeoutExpired('open',15)} if timeout else {'return_value':MagicMock(returncode=1,stderr=b'launch failed')}
+                with patch('os.kill',side_effect=ProcessLookupError),patch('subprocess.run',**kwargs),patch('sys.executable',str(target/'Contents/MacOS/VXDevSync')):
+                    with self.assertRaises(RuntimeError):apply_mac_update(plan)
+                self.assertEqual((target/'marker').read_text(),'old')
+                receipt=json.loads((root/'.vxdevsync_update_receipt.json').read_text())
+                self.assertEqual(receipt['state'],'relaunch_failed')
+                self.assertEqual((Path(receipt['failed_bundle'])/'marker').read_text(),'new')
+
+    def test_ready_file_cannot_escape_stage(self):
+        from unittest.mock import patch
+        from src.updater import apply_mac_update
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);target,stage,plan=self.mac_fixture(root,ready_outside=True)
+            with patch('sys.executable',str(target/'Contents/MacOS/VXDevSync')):
+                with self.assertRaises(ValueError):apply_mac_update(plan)
+            self.assertFalse((root/'outside_ready').exists());self.assertEqual((target/'marker').read_text(),'old')
+
+    def test_fast_child_startup_confirmation_is_not_overwritten(self):
+        from unittest.mock import patch,MagicMock
+        from src.updater import apply_mac_update,AppUpdater
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);target,stage,plan=self.mac_fixture(root)
+            def launch(*args,**kwargs):
+                with patch('sys.frozen',True,create=True),patch('src.updater.VERSION','1.0.3'):
+                    AppUpdater()
+                return MagicMock(returncode=0)
+            with patch('os.kill',side_effect=ProcessLookupError),patch('subprocess.run',side_effect=launch),patch('sys.executable',str(target/'Contents/MacOS/VXDevSync')):
+                apply_mac_update(plan)
+            self.assertEqual(json.loads((root/'.vxdevsync_update_receipt.json').read_text())['state'],'completed')
+
+    def test_updater_single_flight_rejects_second_thread(self):
+        import threading
+        from src.updater import AppUpdater
+        updater=AppUpdater();entered=threading.Event();release=threading.Event()
+        def held_operation():
+            updater._operation_lock.acquire();entered.set();release.wait(2);updater._operation_lock.release()
+        thread=threading.Thread(target=held_operation);thread.start();self.assertTrue(entered.wait(1))
+        try:
+            with self.assertRaisesRegex(ValueError,'operation_busy'):updater.check()
+        finally:release.set();thread.join(2)
+        self.assertFalse(thread.is_alive())
+
+    def test_windows_unicode_receipt_confirms_loaded_version(self):
+        import configparser
+        from unittest.mock import patch
+        from src.updater import AppUpdater
+        from src.version import VERSION
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);target=root/'Thư mục chương trình'/'VXDevSync';target.mkdir(parents=True)
+            executable=target/'VXDevSync.exe';executable.write_bytes(b'fixture')
+            receipt=root/'Thư mục chương trình'/'.vxdevsync_update_receipt.ini'
+            receipt.write_text('[Update]\nstate=awaiting_launch_confirmation\ntarget='+str(target)+'\nversion='+VERSION+'\n',encoding='utf-16')
+            with patch('sys.platform','win32'),patch('sys.frozen',True,create=True),patch('sys.executable',str(executable)):
+                AppUpdater()
+            document=configparser.ConfigParser();document.read(receipt,encoding='utf-16')
+            self.assertEqual(document['Update']['state'],'completed')
+            self.assertEqual(document['Update']['target'],str(target))
+
+    def test_staged_bundle_change_after_ack_never_replaces_current_app(self):
+        from unittest.mock import patch
+        from src.updater import apply_mac_update
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);target,stage,plan=self.mac_fixture(root)
+            def parent_exited(*args):
+                (stage/'marker').write_text('tampered after ack')
+                raise ProcessLookupError
+            with patch('os.kill',side_effect=parent_exited),patch('sys.executable',str(target/'Contents/MacOS/VXDevSync')),patch('subprocess.run') as launch:
+                launch.side_effect = AssertionError('must reject before launch')
+                with self.assertRaisesRegex(ValueError,'staging|Staging'):
+                    apply_mac_update(plan)
+            self.assertEqual((target/'marker').read_text(),'old')
+            self.assertFalse(any(root.glob('.vxdevsync_backup_*.app')))
+
+    def test_changed_target_identity_after_ack_is_not_replaced(self):
+        import shutil
+        from unittest.mock import patch
+        from src.updater import apply_mac_update
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);target,stage,plan=self.mac_fixture(root)
+            previous=root/'User_kept_old.app'
+            def parent_exited(*args):
+                target.rename(previous)
+                shutil.copytree(previous,target)
+                (target/'marker').write_text('user replacement')
+                raise ProcessLookupError
+            with patch('os.kill',side_effect=parent_exited),patch('sys.executable',str(target/'Contents/MacOS/VXDevSync')),patch('subprocess.run') as launch:
+                launch.side_effect = AssertionError('must reject before launch')
+                with self.assertRaisesRegex(ValueError,'bundle|Bundle'):
+                    apply_mac_update(plan)
+            self.assertEqual((target/'marker').read_text(),'user replacement')
+            self.assertEqual((previous/'marker').read_text(),'old')

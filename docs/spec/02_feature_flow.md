@@ -49,7 +49,7 @@ sequenceDiagram
 
 ## 2. Luồng Tính năng 2: Chuyển đổi Workspace & Quản lý Recent Paths
 
-Tuân thủ nghiêm ngặt mục "Mở file/thư mục và danh sách gần đây" trong [desktop_ui_standards.md](../../.agents/desktop_ui_standards.md):
+Tuân thủ nghiêm ngặt mục "Mở file/thư mục và danh sách gần đây" trong [desktop_ui_standards.md](../../../_summary/standard_docs/desktop_ui_standards.md):
 - Nút **Open Folder** đặt tại Titlebar bên cạnh tab navigation.
 - Hover hoặc focus nút hiển thị dropdown tối đa **5 thư mục gần đây (Recent Workspaces)**, mới nhất đặt lên đầu.
 - Click nút chính: Mở hộp thoại chọn thư mục gốc của hệ điều hành (Native Folder Picker).

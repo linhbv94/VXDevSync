@@ -25,19 +25,8 @@ if len(sys.argv) == 3 and sys.argv[1] == '--apply-update':
 
 if '--self-test' in sys.argv:
     import json
-    import webview
-    from src.updater import AppUpdater, get_ssl_context
-    from src.version import VERSION, APP_ID
-    AppUpdater()
-    ssl_ctx = get_ssl_context()
-    if ssl_ctx is None:
-        raise ValueError("Không thể khởi tạo SSL Context")
-    if sys.platform == 'darwin':
-        import webview.platforms.cocoa
-    elif sys.platform == 'win32':
-        import webview.platforms.edgechromium
-        import webview.platforms.winforms
-    print(json.dumps({'version': VERSION, 'app_id': APP_ID, 'frozen': bool(getattr(sys, 'frozen', False)), 'self_test': 'ok'}))
+    from src.self_test import run_self_test
+    print(json.dumps(run_self_test()))
     raise SystemExit(0)
 
 import webview

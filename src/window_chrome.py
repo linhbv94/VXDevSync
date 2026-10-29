@@ -4,6 +4,15 @@ import sys
 _observer_registered = False
 
 
+def _load_about_icon(path):
+    """Match muda's 512-point About image; PNG DPI must not halve its size."""
+    import AppKit
+    icon = AppKit.NSImage.alloc().initWithContentsOfFile_(str(path))
+    if icon is not None:
+        icon.setSize_((512.0, 512.0))
+    return icon
+
+
 def sync_native_chrome(window):
     if sys.platform != 'darwin':
         return
@@ -103,3 +112,98 @@ def _position_mac_controls(window):
         )
         _observer_registered = True
 
+
+
+def _dispatch_menu_js(window, script):
+    # evaluate_js waits for WebKit completion; never block AppKit's event loop.
+    from threading import Thread
+    import logging
+
+    def run():
+        try:
+            window.evaluate_js(script)
+        except Exception:
+            logging.getLogger(__name__).exception("Native menu JavaScript dispatch failed")
+
+    worker = Thread(target=run, name="vx_menu_dispatch", daemon=True)
+    worker.start()
+    return worker
+
+
+def sync_app_menu(window, language):
+    """Rebuild app-owned menu labels on AppKit's main thread."""
+    if sys.platform != 'darwin' or window is None:
+        return
+    from PyObjCTools import AppHelper
+    AppHelper.callAfter(_install_app_menu, window, language)
+
+
+_app_menu_target_class = None
+
+def _install_app_menu(window, language):
+    global _app_menu_target_class
+    import AppKit
+    from Foundation import NSObject, NSMutableAttributedString, NSURL, NSMakeRange
+    from .version import VERSION
+    vi = language != 'en'
+    app = AppKit.NSApplication.sharedApplication()
+
+    if _app_menu_target_class is None:
+        class AppMenuTarget(NSObject):
+            def settings_(self, sender):
+                _dispatch_menu_js(self._vx_window, 'openSettingsModal()')
+
+            def workspace_(self, sender):
+                _dispatch_menu_js(self._vx_window, 'document.getElementById("btn-open-workspace").click()')
+
+            def about_(self, sender):
+                url = 'https://github.com/linhbv94/VXDevSync'
+                description = ('Đồng bộ Git và thư viện kỹ năng AI' if self._vx_language != 'en' else 'Sync Git repositories and AI skills')
+                text = f'Bùi Việt Linh\n{description}\nGitHub: {url}'
+                credits = NSMutableAttributedString.alloc().initWithString_(text)
+                opts = {'ApplicationName': 'VXDevSync', 'ApplicationVersion': VERSION, 'Version': '', 'Copyright': '© 2026 Bùi Việt Linh. All rights reserved.', 'Credits': credits}
+                # About uses transparent art, not the Dock squircle (Search reference).
+                from pathlib import Path
+                resource_root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent.parent))
+                icon = _load_about_icon(resource_root / 'icon.png')
+                if icon is not None:
+                    opts['ApplicationIcon'] = icon
+                app.orderFrontStandardAboutPanelWithOptions_(opts)
+
+        _app_menu_target_class = AppMenuTarget
+
+    target = _app_menu_target_class.alloc().init()
+    target._vx_window = window
+    target._vx_language = language
+    window._vx_menu_target = target
+    bar = AppKit.NSMenu.alloc().init()
+    def submenu(title):
+        holder = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, None, '')
+        menu = AppKit.NSMenu.alloc().initWithTitle_(title)
+        holder.setSubmenu_(menu); bar.addItem_(holder)
+        return menu
+    def item(menu, title, selector, key='', owner=target):
+        entry = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(title, selector, key)
+        entry.setTarget_(owner); menu.addItem_(entry)
+        return entry
+    main = submenu('VXDevSync')
+    item(main, 'Giới thiệu VXDevSync' if vi else 'About VXDevSync', 'about:')
+    main.addItem_(AppKit.NSMenuItem.separatorItem())
+    item(main, 'Cài đặt…' if vi else 'Settings…', 'settings:', ',')
+    main.addItem_(AppKit.NSMenuItem.separatorItem())
+    service_item = item(main, 'Services', None)
+    services = AppKit.NSMenu.alloc().initWithTitle_('Services')
+    service_item.setSubmenu_(services); app.setServicesMenu_(services)
+    main.addItem_(AppKit.NSMenuItem.separatorItem())
+    item(main, 'Hide VXDevSync', 'hide:', 'h', app)
+    item(main, 'Hide Others', 'hideOtherApplications:', '', app)
+    item(main, 'Show All', 'unhideAllApplications:', '', app)
+    main.addItem_(AppKit.NSMenuItem.separatorItem())
+    item(main, 'Quit VXDevSync', 'terminate:', 'q', app)
+    files = submenu('Tệp' if vi else 'File')
+    item(files, 'Mở workspace…' if vi else 'Open workspace…', 'workspace:', 'o')
+    edit = submenu('Edit')
+    for title, selector, key in [('Undo','undo:','z'), ('Cut','cut:','x'), ('Copy','copy:','c'), ('Paste','paste:','v'), ('Select All','selectAll:','a')]:
+        # nil target uses the native responder chain, including WebView text fields.
+        item(edit, title, selector, key, None)
+    app.setMainMenu_(bar)
