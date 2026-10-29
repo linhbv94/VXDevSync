@@ -10,7 +10,10 @@ from src.version import VERSION,APP_ID,REPOSITORY
 
 def build_manifest(folder, private_pem):
     platforms={}
-    for platform,suffix in [('windows_x64','_setup.exe'),('macos_silicon','.app.tar.gz'),('macos_intel','.app.tar.gz')]:
+    targets = [('windows_x64','_setup.exe'),('macos_silicon','.app.tar.gz')]
+    if (folder / f'vxdevsync_{VERSION}_macos_intel.app.tar.gz').exists():
+        targets.append(('macos_intel','.app.tar.gz'))
+    for platform,suffix in targets:
         filename=f'vxdevsync_{VERSION}_{platform}{suffix}';path=folder/filename
         platforms[platform]={'url':f'https://github.com/{REPOSITORY}/releases/download/v{VERSION}/{filename}', 'size':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
     payload={'app_id':APP_ID,'version':VERSION,'platforms':platforms}

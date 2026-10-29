@@ -13,11 +13,16 @@ from src.version import VERSION,REPOSITORY,APP_ID
 
 def gh(*args):return subprocess.check_output(['gh',*args],text=True)
 def metadata():return json.loads(gh('release','view',f'v{VERSION}','--repo',REPOSITORY,'--json','databaseId,tagName,isDraft,isPrerelease,assets'))
-def names():return [f'vxdevsync_{VERSION}_{suffix}' for suffix in ['windows_x64_setup.exe','macos_silicon.dmg','macos_intel.dmg','macos_silicon.app.tar.gz','macos_intel.app.tar.gz']]
-def notes():
+def names(actual_names=None):
+    base = ['windows_x64_setup.exe','macos_silicon.dmg','macos_silicon.app.tar.gz']
+    if actual_names and any('macos_intel' in n for n in actual_names):
+        base += ['macos_intel.dmg','macos_intel.app.tar.gz']
+    return [f'vxdevsync_{VERSION}_{suffix}' for suffix in base]
+def notes(has_intel=False):
     changes=Path(f'docs/release_notes/{VERSION}.md').read_text(encoding='utf-8').strip()
     base=f'https://github.com/{REPOSITORY}/releases/download/v{VERSION}/vxdevsync_{VERSION}'
-    return changes+f'\n\n**Tải ứng dụng**\n\n- [Windows x64]({base}_windows_x64_setup.exe)\n- [Mac Apple Silicon]({base}_macos_silicon.dmg)\n- [Mac Intel]({base}_macos_intel.dmg)\n\nWindows: chạy bộ cài. Mac: kéo app vào Applications. Hệ điều hành có thể yêu cầu cho phép mở lần đầu. Cần cài Git để đồng bộ repository.\n\nCác bản sau: Cài đặt → Cập nhật.\n'
+    intel_line = f'\n- [Mac Intel]({base}_macos_intel.dmg)' if has_intel else ''
+    return changes+f'\n\n**Tải ứng dụng**\n\n- [Windows x64]({base}_windows_x64_setup.exe)\n- [Mac Apple Silicon]({base}_macos_silicon.dmg){intel_line}\n\nWindows: chạy bộ cài. Mac: kéo app vào Applications. Hệ điều hành có thể yêu cầu cho phép mở lần đầu. Cần cài Git để đồng bộ repository.\n\nCác bản sau: Cài đặt → Cập nhật.\n'
 
 def main(mode):
     if os.environ.get('GITHUB_REPOSITORY',REPOSITORY)!=REPOSITORY:raise ValueError('Wrong repository')
@@ -37,8 +42,8 @@ def main(mode):
         print('Draft prepared');return
     release=metadata()
     if release['tagName']!=tag or not release['isDraft']:raise ValueError('Expected exact draft tag')
-    expected=set(names())|({'latest.json'} if mode=='publish' else set())
     actual={a['name'] for a in release['assets']}
+    expected=set(names(actual))|({'latest.json'} if mode=='publish' else set())
     if (actual!=expected and not (mode=='finalize' and actual==expected|{'latest.json'})) or any(a['size']<=0 for a in release['assets']):raise ValueError('Wrong release asset layout')
     if mode=='publish':
         if os.environ.get('LOCAL_QA_PASSED')!='true':raise ValueError('Local QA not confirmed')
@@ -72,11 +77,11 @@ def main(mode):
         else:document=json.loads((folder/'latest.json').read_text(encoding='utf-8'))
         public=json.loads(Path('src/release_config.json').read_text(encoding='utf-8'))['public_key']
         payload=verify_manifest(document,public)
-        if payload['version']!=VERSION or set(payload['platforms'])!={'windows_x64','macos_silicon','macos_intel'}:raise ValueError('Incomplete manifest')
+        if payload['version']!=VERSION or not ({'windows_x64','macos_silicon'} <= set(payload['platforms'])):raise ValueError('Incomplete manifest')
         for platform,entry in payload['platforms'].items():
             filename=entry['url'].rsplit('/',1)[1];verify_package(folder/filename,entry)
         if mode=='finalize':gh('release','upload',tag,str(folder/'latest.json'),'--repo',REPOSITORY,'--clobber')
-        body={'tag_name':tag,'name':f'VXDevSync {tag}','body':notes(),'draft':mode!='publish','prerelease':False}
+        body={'tag_name':tag,'name':f'VXDevSync {tag}','body':notes('macos_intel' in payload['platforms']),'draft':mode!='publish','prerelease':False}
         if mode=='publish':body['make_latest']='true'
         patch=folder/'patch.json';patch.write_text(json.dumps(body,ensure_ascii=False),encoding='utf-8')
         changed=json.loads(gh('api','--method','PATCH',f"repos/{REPOSITORY}/releases/{release['databaseId']}",'--input',str(patch)))
