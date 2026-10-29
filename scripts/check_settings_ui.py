@@ -8,5 +8,6 @@ if data['version']!='1.0.0':raise SystemExit('Unsupported Settings adapter versi
 for name,expected in data['files'].items():
  path=(root/name).resolve()
  if not path.is_relative_to(root):raise SystemExit('Invalid manifest path')
- if hashlib.sha256(path.read_bytes()).hexdigest()!=expected:raise SystemExit('Settings adapter drift: '+name+'; update canonical source and sync')
+ content=path.read_text(encoding='utf-8').replace('\r\n','\n').encode('utf-8')
+ if hashlib.sha256(content).hexdigest()!=expected:raise SystemExit('Settings adapter drift: '+name+'; update canonical source and sync')
 print('Settings adapter '+data['version']+': integrity PASS')

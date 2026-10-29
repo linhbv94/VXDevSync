@@ -192,7 +192,7 @@ class UpdaterControllerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);target,stage,plan=self.mac_fixture(root)
             def launch(*args,**kwargs):
-                with patch('sys.frozen',True,create=True),patch('src.updater.VERSION','1.0.3'):
+                with patch('sys.platform','darwin'),patch('sys.frozen',True,create=True),patch('src.updater.VERSION','1.0.3'):
                     AppUpdater()
                 return MagicMock(returncode=0)
             with patch('os.kill',side_effect=ProcessLookupError),patch('subprocess.run',side_effect=launch),patch('sys.executable',str(target/'Contents/MacOS/VXDevSync')):
