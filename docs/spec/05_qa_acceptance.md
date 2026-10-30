@@ -207,3 +207,11 @@ And Bảng Skills Inventory trên Máy B cập nhật trạng thái đã xóa, k
 ## Gate phát hành1.0.0 — QA độc lập2026-10-26
 
 [QA và sửa lỗi thực tế](../release_1_0_0_review.md) ưu tiên hơn các tuyên bố hoàn tất trước đây. Inventory chỉ đọc; Sync không gom file ngoài phạm vi, dirty/staged/diverged phải safe-skip, tên skill không được thoát root/protected folders. Cấu hình lỗi giữ nguyên và có previous backup. Updater Python dùng signed manifest Ed25519/digest, Updates tab/startup check, mutation guard và staging/rollback; không dùng schema Tauri. Windows và haiMac có cùng engine, installer/updater khác nhau. [Vận hành](../desktop_release.md).
+
+## Safety regression — 2026-10-30
+
+- Sync file thường/Unicode vẫn giữ nội dung, mtime và quyền executable; file không đổi không bị ghi lại. Không follow symlink/reparse point trong cây được chọn để sync; `.system` vẫn được bỏ qua và giữ nguyên.
+- Đích hardlink được thay entry bằng staging/atomic replace, không sửa inode ngoài scope. Copy lỗi giữ bản cũ và dọn staging. Chèn symlink tại đích trong lúc copy không được làm thay đổi file ngoài cây sync.
+- Rules AGENTS.md/CLAUDE.md dùng cùng boundary; giữ source-of-truth và header adapter cũ.
+- Index staged từ trước vẫn bị preflight chặn. Nếu Git actor khác stage file ngoài owned paths sau preflight, sync chỉ commit owned paths; file ngoài task vẫn ở index của user và không nằm trong commit sync/remote fixture.
+- Chỉ xác nhận source + fixture tại platform đã chạy; Windows reparse-point/locking và native GUI cần QA riêng trước release. Không đổi luồng updater, app identity hoặc quyền hệ thống.

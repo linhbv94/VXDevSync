@@ -1,3 +1,4 @@
+from src import safe_sync_io
 import os
 import shutil
 import hashlib
@@ -254,7 +255,12 @@ class SkillsEngine:
         """
         tombstone_names = {self.validate_skill_name(item.get("name")) for item in deleted_skills if item.get("name")}
         library_skills_dir = library_path / "skills"
-        library_skills_dir.mkdir(parents=True, exist_ok=True)
+        safe_sync_io.ensure_directory(library_skills_dir)
+
+        safe_sync_io.validate_tree(library_skills_dir, lambda p: self.is_ignored(str(p), ignore_patterns))
+        for agent in selected_agents:
+            if agent_paths.get(agent):
+                safe_sync_io.validate_tree(Path(agent_paths[agent]) / "skills", lambda p: self.is_ignored(str(p), ignore_patterns))
 
         synced_files = []
         candidates = {}
@@ -296,8 +302,8 @@ class SkillsEngine:
                         continue
 
                     library_file = library_skills_dir / rel_path
-                    agent_hash = self.get_file_hash(agent_file)
-                    lib_hash = self.get_file_hash(library_file)
+                    agent_hash = safe_sync_io.file_hash(agent_skills_dir, rel_path)
+                    lib_hash = safe_sync_io.file_hash(library_skills_dir, rel_path)
 
                     if agent_hash and agent_hash != lib_hash:
                         agent_mtime = agent_file.stat().st_mtime
@@ -310,8 +316,7 @@ class SkillsEngine:
         for rel_path in sorted(candidates, key=lambda p: p.as_posix()):
             _, agent_name, agent_file = candidates[rel_path]
             library_file = library_skills_dir / rel_path
-            library_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(agent_file, library_file)
+            safe_sync_io.copy_file(agent_file.parents[len(rel_path.parts)-1], library_skills_dir, rel_path)
             synced_files.append(f"{agent_name}: {rel_path.as_posix()}")
 
         return synced_files
@@ -328,6 +333,11 @@ class SkillsEngine:
         if not library_skills_dir.exists():
             return []
 
+        safe_sync_io.validate_tree(library_skills_dir, lambda p: self.is_ignored(str(p), ignore_patterns))
+        for agent in selected_agents:
+            if agent_paths.get(agent):
+                safe_sync_io.validate_tree(Path(agent_paths[agent]) / "skills", lambda p: self.is_ignored(str(p), ignore_patterns))
+
         deployed_agents = []
 
         for agent_name in selected_agents:
@@ -336,7 +346,7 @@ class SkillsEngine:
                 continue
 
             target_skills_dir = Path(agent_dir_str) / "skills"
-            target_skills_dir.mkdir(parents=True, exist_ok=True)
+            safe_sync_io.ensure_directory(target_skills_dir)
 
             for root, dirs, files in os.walk(library_skills_dir):
                 if ".system" in dirs:
@@ -355,13 +365,12 @@ class SkillsEngine:
                         continue
 
                     dest_file = target_skills_dir / rel_path
-                    dest_file.parent.mkdir(parents=True, exist_ok=True)
 
-                    src_hash = self.get_file_hash(src_file)
-                    dest_hash = self.get_file_hash(dest_file)
+                    src_hash = safe_sync_io.file_hash(library_skills_dir, rel_path)
+                    dest_hash = safe_sync_io.file_hash(target_skills_dir, rel_path)
 
                     if src_hash != dest_hash:
-                        shutil.copy2(src_file, dest_file)
+                        safe_sync_io.copy_file(library_skills_dir, target_skills_dir, rel_path)
 
             deployed_agents.append(agent_name)
 

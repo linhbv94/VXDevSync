@@ -76,3 +76,23 @@ class ReleaseSafetyTests(unittest.TestCase):
         committed,pushed,message=self.api._commit_library_changes(local,'retry')
         self.assertFalse(committed);self.assertTrue(pushed)
         self.assertEqual(self.git(remote,'rev-parse','refs/heads/main'),expected)
+
+    def test_external_staging_during_sync_is_not_committed_and_stays_staged(self):
+        remote=self.root/'remote.git'
+        self.git(self.root,'init','--bare',str(remote));self.git(self.lib,'init','-b','main')
+        self.git(self.lib,'config','user.name','QA fixture');self.git(self.lib,'config','user.email','qa@example.invalid')
+        self.git(self.lib,'add','skills');self.git(self.lib,'commit','-m','baseline');self.git(self.lib,'remote','add','origin',str(remote));self.git(self.lib,'push','origin','main')
+        private=self.lib/'private_draft.txt';private.write_text('keep out of sync commit')
+        (self.lib/'skills/sample/SKILL.md').write_text('updated')
+        deploy=self.api._skills_engine.deploy_skills_downstream
+        def external_stage(*args,**kwargs):
+            result=deploy(*args,**kwargs)
+            self.git(self.lib,'add','private_draft.txt')
+            return result
+        self.api._skills_engine.deploy_skills_downstream=external_stage
+        response=self.api.sync_skills_unified()
+        self.assertTrue(response['success'],response)
+        self.assertTrue(response['git_pushed'],response)
+        self.assertNotIn('private_draft.txt',self.git(remote,'ls-tree','-r','--name-only','main').splitlines())
+        self.assertEqual(self.git(self.lib,'diff','--cached','--name-only'),'private_draft.txt')
+        self.assertEqual(private.read_text(),'keep out of sync commit')

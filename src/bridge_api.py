@@ -331,12 +331,14 @@ class BridgeApi:
         code, _, err = self._git_engine.run_cmd(["add", "-A", "--", *paths], library)
         if code:
             return False, False, err
-        code, changes, err = self._git_engine.run_cmd(["diff", "--cached", "--name-only"], library)
+        code, changes, err = self._git_engine.run_cmd(["diff", "--cached", "--name-only", "--", *paths], library)
         if code:
             return False, False, err
         committed = bool(changes)
         if committed:
-            code, _, err = self._git_engine.run_cmd(["commit", "-m", message], library)
+            # Git holds its index lock while --only selects these worktree paths.
+            # Unrelated files staged by another actor after preflight stay staged.
+            code, _, err = self._git_engine.run_cmd(["commit", "--only", "-m", message, "--", *paths], library)
             if code:
                 return False, False, err
         code, branch, err = self._git_engine.run_cmd(["branch", "--show-current"], library)

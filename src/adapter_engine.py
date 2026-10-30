@@ -1,4 +1,4 @@
-import hashlib
+from src import safe_sync_io
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 
@@ -14,16 +14,8 @@ class AdapterEngine:
 
     @staticmethod
     def get_file_hash(filepath: Path) -> str:
-        if not filepath.exists() or not filepath.is_file():
-            return ""
-        hasher = hashlib.md5()
-        try:
-            with open(filepath, "rb") as f:
-                while chunk := f.read(8192):
-                    hasher.update(chunk)
-            return hasher.hexdigest()
-        except Exception:
-            return ""
+        return safe_sync_io.file_hash(filepath.parent, filepath.name)
+
 
     def get_agent_rules_files(self, agent_name: str, agent_dir_str: str) -> List[Path]:
         if not agent_dir_str:
@@ -65,17 +57,17 @@ class AdapterEngine:
             for rf in rules_files:
                 if rf.exists() and rf.stat().st_size > 0:
                     try:
-                        with open(rf, "r", encoding="utf-8") as f:
-                            content = f.read()
+                        content = safe_sync_io.read_text(rf.parent, rf.name)
 
                         if rf.name == "CLAUDE.md" and CLAUDE_HEADER_METADATA.strip() in content:
                             content = content.replace(CLAUDE_HEADER_METADATA, "").strip()
 
-                        library_path.mkdir(parents=True, exist_ok=True)
-                        with open(lib_root_file, "w", encoding="utf-8") as f:
-                            f.write(content)
+                        safe_sync_io.ensure_directory(library_path)
+                        safe_sync_io.write_text(lib_root_file.parent, lib_root_file.name, content)
 
                         return True, f"Khởi tạo AGENTS.md cho Central Library từ {agent_name} ({rf.name})."
+                    except ValueError:
+                        raise
                     except Exception as e:
                         return False, f"Lỗi đọc rules từ {agent_name}: {e}"
 
@@ -96,8 +88,9 @@ class AdapterEngine:
             return []
 
         try:
-            with open(lib_root_file, "r", encoding="utf-8") as f:
-                base_content = f.read()
+            base_content = safe_sync_io.read_text(lib_root_file.parent, lib_root_file.name)
+        except ValueError:
+            raise
         except Exception:
             return []
 
@@ -110,14 +103,13 @@ class AdapterEngine:
                 continue
 
             agent_dir = Path(agent_dir_str)
-            agent_dir.mkdir(parents=True, exist_ok=True)
+            safe_sync_io.ensure_directory(agent_dir)
 
             if agent_name in ["anti", "codex", "antigravity"]:
                 target_file = agent_dir.parent / "AGENTS.md" if agent_dir.name == "skills" else agent_dir / "AGENTS.md"
                 target_hash = self.get_file_hash(target_file)
                 if self.get_file_hash(lib_root_file) != target_hash:
-                    with open(target_file, "w", encoding="utf-8") as f:
-                        f.write(base_content)
+                    safe_sync_io.write_text(target_file.parent, target_file.name, base_content)
                     deployed.append(f"{agent_name} (AGENTS.md)")
 
             elif agent_name == "claude":
@@ -126,13 +118,13 @@ class AdapterEngine:
                 current_text = ""
                 if target_file.exists():
                     try:
-                        with open(target_file, "r", encoding="utf-8") as f:
-                            current_text = f.read()
+                        current_text = safe_sync_io.read_text(target_file.parent, target_file.name)
+                    except ValueError:
+                        raise
                     except Exception:
                         pass
                 if current_text != claude_content:
-                    with open(target_file, "w", encoding="utf-8") as f:
-                        f.write(claude_content)
+                    safe_sync_io.write_text(target_file.parent, target_file.name, claude_content)
                     deployed.append("claude (CLAUDE.md)")
 
         return deployed
