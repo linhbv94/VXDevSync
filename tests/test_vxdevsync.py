@@ -1,3 +1,4 @@
+import os
 import unittest
 import shutil
 import tempfile
@@ -316,7 +317,8 @@ class TestVXDevSync(unittest.TestCase):
     def test_push_dirty_repo_without_remote_does_not_commit(self):
         no_remote_repo = self.test_path / "no_remote_repo"
         no_remote_repo.mkdir(parents=True, exist_ok=True)
-        self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=no_remote_repo)
+        code, _, _ = self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=no_remote_repo)
+        self.assertEqual(code, 0)
         (no_remote_repo / "dirty.txt").write_text("dirty content", encoding="utf-8")
 
         res = self.api._git_engine.sync_single_repo(no_remote_repo, action="push")
@@ -326,6 +328,162 @@ class TestVXDevSync(unittest.TestCase):
         # Không được tự động commit khi không có remote
         code, log_code, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=no_remote_repo)
         self.assertNotEqual(code, 0)
+
+    def test_push_dirty_repo_without_identity_fails_and_does_not_push(self):
+        bare_remote = self.test_path / "no_ident_remote.git"
+        code, _, _ = self.api._git_engine.run_cmd(["init", "--bare", str(bare_remote)], cwd=self.test_path)
+        self.assertEqual(code, 0)
+
+        local_repo = self.test_path / "no_ident_local"
+        local_repo.mkdir(parents=True, exist_ok=True)
+        code, _, _ = self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.email", "tester@example.com"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        (local_repo / "base.txt").write_text("base", encoding="utf-8")
+        code, _, _ = self.api._git_engine.run_cmd(["add", "."], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["commit", "-m", "init"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["remote", "add", "origin", str(bare_remote)], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["push", "-u", "origin", "main"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        # Xóa danh tính và cấu hình user.useConfigOnly để ép lỗi khi commit nếu thiếu config
+        code, _, _ = self.api._git_engine.run_cmd(["config", "--unset-all", "user.name"], cwd=local_repo)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "--unset-all", "user.email"], cwd=local_repo)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.useConfigOnly", "true"], cwd=local_repo)
+        (local_repo / "dirty_no_id.txt").write_text("mod", encoding="utf-8")
+
+        # Lưu lại SHA HEAD trước khi push
+        code, rev_before, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        # Giả lập môi trường cô lập danh tính để commit chắc chắn thất bại do thiếu identity
+        saved_env = {}
+        override_keys = [
+            "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM",
+            "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL",
+            "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"
+        ]
+        for k in override_keys:
+            saved_env[k] = os.environ.get(k)
+        os.environ["GIT_CONFIG_GLOBAL"] = "/dev/null"
+        os.environ["GIT_CONFIG_SYSTEM"] = "/dev/null"
+        os.environ.pop("GIT_AUTHOR_NAME", None)
+        os.environ.pop("GIT_AUTHOR_EMAIL", None)
+        os.environ.pop("GIT_COMMITTER_NAME", None)
+        os.environ.pop("GIT_COMMITTER_EMAIL", None)
+
+        try:
+            res = self.api._git_engine.sync_single_repo(local_repo, action="push")
+            self.assertFalse(res["success"])
+            self.assertIn("Lỗi commit tự động", res["message"])
+            self.assertIn("user.name", res["message"])
+
+            # Đảm bảo HEAD không thay đổi và remote không nhận commit mới
+            code, rev_after, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=local_repo)
+            self.assertEqual(rev_before.strip(), rev_after.strip())
+        finally:
+            for k, v in saved_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+    def test_push_dirty_repo_with_ongoing_merge_fails_safe(self):
+        bare_remote = self.test_path / "merge_remote.git"
+        code, _, _ = self.api._git_engine.run_cmd(["init", "--bare", str(bare_remote)], cwd=self.test_path)
+        self.assertEqual(code, 0)
+
+        local_repo = self.test_path / "merge_local"
+        local_repo.mkdir(parents=True, exist_ok=True)
+        code, _, _ = self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        (local_repo / "init.txt").write_text("init", encoding="utf-8")
+        code, _, _ = self.api._git_engine.run_cmd(["add", "."], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["commit", "-m", "init"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["remote", "add", "origin", str(bare_remote)], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["push", "-u", "origin", "main"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        # Tạo file sửa đổi dở dang và tạo cờ MERGE_HEAD giả lập merge dở
+        (local_repo / "dirty_merge.txt").write_text("content", encoding="utf-8")
+        git_dir = local_repo / ".git"
+        (git_dir / "MERGE_HEAD").write_text("0123456789abcdef0123456789abcdef01234567\n", encoding="utf-8")
+
+        res = self.api._git_engine.sync_single_repo(local_repo, action="push")
+        self.assertFalse(res["success"])
+        self.assertIn("merge/rebase/cherry-pick dở dang", res["message"])
+
+        # Dọn dẹp cờ
+        (git_dir / "MERGE_HEAD").unlink(missing_ok=True)
+
+    def test_push_rejected_after_auto_commit_preserves_local_commit(self):
+        bare_remote = self.test_path / "reject_remote.git"
+        code, _, _ = self.api._git_engine.run_cmd(["init", "--bare", str(bare_remote)], cwd=self.test_path)
+        self.assertEqual(code, 0)
+
+        # Clone / tạo repo 1 push commit lên trước
+        peer_repo = self.test_path / "reject_peer"
+        peer_repo.mkdir(parents=True, exist_ok=True)
+        code, _, _ = self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        (peer_repo / "common.txt").write_text("common base", encoding="utf-8")
+        code, _, _ = self.api._git_engine.run_cmd(["add", "."], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["commit", "-m", "init base"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["remote", "add", "origin", str(bare_remote)], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["push", "-u", "origin", "main"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+
+        # Repo chính clone từ bare_remote
+        local_repo = self.test_path / "reject_local"
+        code, _, _ = self.api._git_engine.run_cmd(["clone", str(bare_remote), str(local_repo)], cwd=self.test_path)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        # Peer repo đẩy commit mới lên remote (làm remote ahead so với local)
+        (peer_repo / "peer.txt").write_text("peer commit", encoding="utf-8")
+        code, _, _ = self.api._git_engine.run_cmd(["add", "."], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["commit", "-m", "peer push"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["push", "origin", "main"], cwd=peer_repo)
+        self.assertEqual(code, 0)
+
+        # Local repo có dirty file, chạy push: auto-commit sẽ tạo commit nhưng push bị reject non-fast-forward
+        (local_repo / "local_dirty.txt").write_text("local changes", encoding="utf-8")
+        res = self.api._git_engine.sync_single_repo(local_repo, action="push")
+
+        self.assertFalse(res["success"])
+        self.assertIn("đã tạo commit cục bộ", res["message"])
+
+        # Kiểm tra commit cục bộ vẫn được bảo toàn tại local_repo
+        code, log_out, _ = self.api._git_engine.run_cmd(["log", "-1", "--pretty=%B"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        self.assertIn("chore: auto-commit changes before push", log_out)
 
 
 if __name__ == "__main__":

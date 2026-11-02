@@ -776,7 +776,11 @@ async function executeGitAction(action, paths) {
         showToast((devText("Đồng bộ: ") + (res.success_count) + devText("/") + (res.total) + devText(" thành công, ") + (failedCount) + devText(" repo gặp sự cố")), "warning", 5000);
         openSyncErrorsModal(res);
       } else {
-        showToast((devText("Hoàn tất: Đã ") + (action.toUpperCase()) + devText(" thành công cả ") + (res.total) + devText(" repos")), "success");
+        if (res.total === 1 && res.results && res.results[0] && res.results[0].message) {
+          showToast(res.results[0].message, "success");
+        } else {
+          showToast((devText("Hoàn tất: Đã ") + (action.toUpperCase()) + devText(" thành công cả ") + (res.total) + devText(" repos")), "success");
+        }
       }
       triggerGitScan();
     } else {

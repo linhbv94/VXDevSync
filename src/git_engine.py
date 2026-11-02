@@ -302,6 +302,19 @@ class GitEngine:
             if action in ("pull", "smart_sync"):
                 return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)", cmd="git status --porcelain", raw_error=f"Dirty files:\n{dirty.strip()}")
             elif action == "push":
+                # Kiểm tra xem có unmerged conflicts hoặc operation merge/rebase/cherry-pick dở dang không
+                code_unmerged, unmerged_out, _ = self.run_cmd(["diff", "--name-only", "--diff-filter=U"], repo_path, timeout)
+                if code_unmerged == 0 and unmerged_out.strip():
+                    return result(False, "Không thể tự động commit: Repo đang có xung đột chưa giải quyết (Unmerged conflicts)", cmd="git diff --diff-filter=U", raw_error=f"Unmerged files:\n{unmerged_out.strip()}")
+
+                code_gitdir, git_dir_out, _ = self.run_cmd(["rev-parse", "--git-dir"], repo_path, timeout)
+                if code_gitdir == 0 and git_dir_out.strip():
+                    gdir = Path(git_dir_out.strip())
+                    if not gdir.is_absolute():
+                        gdir = Path(repo_path) / gdir
+                    if (gdir / "MERGE_HEAD").exists() or (gdir / "rebase-apply").exists() or (gdir / "rebase-merge").exists() or (gdir / "CHERRY_PICK_HEAD").exists() or (gdir / "REVERT_HEAD").exists():
+                        return result(False, "Không thể tự động commit: Repo đang trong tiến trình merge/rebase/cherry-pick dở dang", cmd="git status", raw_error="Ongoing git operation detected")
+
                 # Tự động commit các file thay đổi (dirty) trước khi push theo yêu cầu UX
                 code, out, err = self.run_cmd(["add", "-A"], repo_path, timeout)
                 if code != 0:
@@ -310,14 +323,15 @@ class GitEngine:
                 code, out, err = self.run_cmd(["commit", "-m", commit_msg], repo_path, timeout)
                 if code != 0:
                     raw_err = (err or out).strip()
-                    hint = ""
-                    if "tell me who you are" in raw_err.lower() or "user.email" in raw_err.lower():
-                        hint = "Chưa cấu hình user.name / user.email trong Git. "
-                    elif "nothing to commit" in raw_err.lower():
-                        pass
+                    if "nothing to commit" in raw_err.lower():
+                        auto_committed = False
                     else:
-                        return result(False, f"Lỗi commit tự động: {hint}{raw_err}".strip(), cmd=f'git commit -m "{commit_msg}"', raw_error=raw_err)
-                auto_committed = True
+                        hint = ""
+                        if "tell me who you are" in raw_err.lower() or "user.email" in raw_err.lower():
+                            hint = "Chưa cấu hình user.name / user.email trong Git. "
+                        return result(False, f"Lỗi commit tự động: {hint}{raw_err} (thay đổi hiện đang ở trạng thái staged)".strip(), cmd=f'git commit -m "{commit_msg}"', raw_error=raw_err)
+                else:
+                    auto_committed = True
 
         if action == "smart_sync":
             code, _, err = self.run_cmd(["fetch", remote, branch], repo_path, timeout)
