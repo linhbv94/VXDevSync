@@ -433,7 +433,7 @@ class TestVXDevSync(unittest.TestCase):
 
     def test_push_rejected_after_auto_commit_preserves_local_commit(self):
         bare_remote = self.test_path / "reject_remote.git"
-        code, _, _ = self.api._git_engine.run_cmd(["init", "--bare", str(bare_remote)], cwd=self.test_path)
+        code, _, _ = self.api._git_engine.run_cmd(["init", "--bare", "-b", "main", str(bare_remote)], cwd=self.test_path)
         self.assertEqual(code, 0)
 
         # Clone / tạo repo 1 push commit lên trước
@@ -457,7 +457,7 @@ class TestVXDevSync(unittest.TestCase):
 
         # Repo chính clone từ bare_remote
         local_repo = self.test_path / "reject_local"
-        code, _, _ = self.api._git_engine.run_cmd(["clone", str(bare_remote), str(local_repo)], cwd=self.test_path)
+        code, _, _ = self.api._git_engine.run_cmd(["clone", "-b", "main", str(bare_remote), str(local_repo)], cwd=self.test_path)
         self.assertEqual(code, 0)
         code, _, _ = self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=local_repo)
         self.assertEqual(code, 0)
