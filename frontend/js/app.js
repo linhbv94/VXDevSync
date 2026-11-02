@@ -285,12 +285,12 @@ function setupEventListeners() {
   if (btnPushAll) {
     btnPushAll.addEventListener("click", () => {
       const activeRepos = state.gitRepos.filter(r => !r.is_ignored && r.has_remote);
-      const aheadRepos = activeRepos.filter(r => r.ahead_count > 0);
-      if (aheadRepos.length === 0) {
-        showToast(devText("Không có repository nào có commit mới cần Push"), "info");
+      const pushRepos = activeRepos.filter(r => r.ahead_count > 0 || r.is_dirty);
+      if (pushRepos.length === 0) {
+        showToast(devText("Không có repository nào có thay đổi cần Push"), "info");
         return;
       }
-      executeGitAction("push", aheadRepos.map(r => r.path));
+      executeGitAction("push", pushRepos.map(r => r.path));
     });
   }
 
@@ -470,7 +470,7 @@ function updateGitCounts() {
   const dirty = activeRepos.filter(r => r.is_dirty || r.is_diverged).length;
   const changed = activeRepos.filter(r => r.is_dirty || r.behind_count > 0 || r.ahead_count > 0).length;
   const pullCount = activeRepos.filter(r => r.has_remote && r.behind_count > 0).length;
-  const pushCount = activeRepos.filter(r => r.has_remote && r.ahead_count > 0).length;
+  const pushCount = activeRepos.filter(r => r.has_remote && (r.ahead_count > 0 || r.is_dirty)).length;
 
   document.getElementById("count-all").textContent = all;
   document.getElementById("count-sync").textContent = syncNeeded;

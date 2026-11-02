@@ -123,11 +123,15 @@ sequenceDiagram
     loop Từng Repo trong danh sách
         Bridge->>GitEng: sync_single_repo(repo_path, action)
         GitEng->>GitEng: Kiểm tra an toàn: Dirty? Diverged?
-        alt Dirty và không được phép
-            GitEng-->>Bridge: { repo: "repo_A", status: "SKIPPED_DIRTY", message: "Bỏ qua an toàn do có file sửa đổi" }
-        else Hợp lệ
+        alt Pull / Smart Sync trên Repo Dirty
+            GitEng-->>Bridge: { repo: "repo_A", status: "SKIPPED_DIRTY", message: "Bỏ qua an toàn: Repo có file chưa commit (Dirty)" }
+        else Push trên Repo Dirty
+            GitEng->>GitEng: Tự động stage (git add -A) và commit ("chore: auto-commit changes before push")
+            GitEng->>GitEng: Thực thi git push origin branch
+            GitEng-->>Bridge: { repo: "repo_A", status: "SUCCESS", message: "Đã commit và push thành công" }
+        else Hợp lệ (Clean / Ahead / Behind)
             GitEng->>GitEng: Thực thi git pull --rebase / git push origin branch
-            GitEng-->>Bridge: { repo: "repo_B", status: "SUCCESS", message: "Đã pull 2 commits" }
+            GitEng-->>Bridge: { repo: "repo_B", status: "SUCCESS", message: "Đã pull/push thành công" }
         end
         Bridge-->>App: on_progress_update(current=1, total=3, detail=repo_result)
         App->>App: Cập nhật thanh tiến trình & Trạng thái icon dòng tương ứng

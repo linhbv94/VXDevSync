@@ -271,6 +271,62 @@ class TestVXDevSync(unittest.TestCase):
         self.assertEqual(cfg.skills_sync.skills_lib, test_lib)
         self.assertEqual(cfg.skills_sync.git_repo, test_repo)
 
+    def test_push_dirty_repo_auto_commits_and_pushes(self):
+        # Thiết lập bare remote và local repo
+        bare_remote = self.test_path / "push_remote.git"
+        self.api._git_engine.run_cmd(["init", "--bare", str(bare_remote)], cwd=self.test_path)
+
+        local_repo = self.test_path / "push_local_repo"
+        local_repo.mkdir(parents=True, exist_ok=True)
+        self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=local_repo)
+        self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=local_repo)
+        self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=local_repo)
+
+        (local_repo / "initial.txt").write_text("v1", encoding="utf-8")
+        self.api._git_engine.run_cmd(["add", "."], cwd=local_repo)
+        self.api._git_engine.run_cmd(["commit", "-m", "init"], cwd=local_repo)
+        self.api._git_engine.run_cmd(["remote", "add", "origin", str(bare_remote)], cwd=local_repo)
+        self.api._git_engine.run_cmd(["push", "-u", "origin", "main"], cwd=local_repo)
+
+        # Tạo file sửa đổi và file mới (dirty worktree)
+        (local_repo / "initial.txt").write_text("v2 dirty modification", encoding="utf-8")
+        (local_repo / "new_untracked.txt").write_text("new content", encoding="utf-8")
+
+        code, dirty_status, _ = self.api._git_engine.run_cmd(["status", "--porcelain"], cwd=local_repo)
+        self.assertTrue(dirty_status.strip())
+
+        # Thực thi push trên dirty repo: engine phải tự động commit và push thành công
+        res = self.api._git_engine.sync_single_repo(local_repo, action="push")
+        self.assertTrue(res["success"], f"Push dirty repo thất bại: {res.get('message')}")
+        self.assertIn("Đã commit và push thành công", res["message"])
+
+        # Kiểm tra trạng thái sau push: worktree phải clean
+        code, status_after, _ = self.api._git_engine.run_cmd(["status", "--porcelain"], cwd=local_repo)
+        self.assertEqual(status_after.strip(), "")
+
+        # Kiểm tra log commit tự động
+        code, log_out, _ = self.api._git_engine.run_cmd(["log", "-1", "--pretty=%B"], cwd=local_repo)
+        self.assertIn("chore: auto-commit changes before push", log_out)
+
+        # Kiểm tra bare remote đã nhận commit mới nhất
+        code, local_rev, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=local_repo)
+        code, remote_rev, _ = self.api._git_engine.run_cmd(["rev-parse", "refs/heads/main"], cwd=bare_remote)
+        self.assertEqual(local_rev.strip(), remote_rev.strip())
+
+    def test_push_dirty_repo_without_remote_does_not_commit(self):
+        no_remote_repo = self.test_path / "no_remote_repo"
+        no_remote_repo.mkdir(parents=True, exist_ok=True)
+        self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=no_remote_repo)
+        (no_remote_repo / "dirty.txt").write_text("dirty content", encoding="utf-8")
+
+        res = self.api._git_engine.sync_single_repo(no_remote_repo, action="push")
+        self.assertFalse(res["success"])
+        self.assertIn("Chưa gắn remote", res["message"])
+
+        # Không được tự động commit khi không có remote
+        code, log_code, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=no_remote_repo)
+        self.assertNotEqual(code, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

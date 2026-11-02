@@ -98,6 +98,19 @@ When Có một hoặc nhiều repo đang được chọn và người dùng bấ
 Then Toàn bộ các repo được bỏ chọn và thanh tác vụ nổi tự động ẩn đi
 ```
 
+### Kịch bản 3.5: Tự động commit thay đổi dở dang khi Push (Dirty Auto-Commit)
+```gherkin
+Given Repository "vxmedia" đang có file sửa đổi dở dang (trạng thái Dirty) và đã cấu hình remote
+When Người dùng nhấn nút Push riêng cho "vxmedia" hoặc nhấn "Push tất cả" trên thanh Selection Bar
+Then Hệ thống tự động thực hiện stage toàn bộ file (`git add -A`)
+And Hệ thống tự động tạo commit với thông điệp: "chore: auto-commit changes before push"
+And Hệ thống thực hiện lệnh `git push origin [branch]` đưa commit lên remote
+And Worktree của repository sau khi push trở về trạng thái Clean (Up-to-date)
+And Toast thông báo hiển thị: "Đã commit và push thành công"
+When Thao tác là Pull hoặc Smart Sync trên repository đang Dirty
+Then Hệ thống vẫn giữ nguyên cơ chế bảo vệ Safe-Skip để không làm mất mã nguồn local chưa commit
+```
+
 ---
 
 ## 4. Test Suite 4: Loại trừ Repo trực tiếp trên GUI (Git Exclude)

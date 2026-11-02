@@ -222,10 +222,13 @@ class GitEngine:
             action = "Safe-Skip (Dirty)" if is_dirty else "Auto Pull"
         elif ahead > 0:
             sync_state = "AHEAD"
-            action = "Safe-Skip (Dirty)" if is_dirty else "Auto Push"
+            action = "Auto Push"
+        elif is_dirty:
+            sync_state = "UP_TO_DATE"
+            action = "Auto Push"
         else:
             sync_state = "UP_TO_DATE"
-            action = "Safe-Skip (Dirty)" if is_dirty else "Up-to-date"
+            action = "Up-to-date"
 
         return RepoStatus(
             name=name,
@@ -284,17 +287,37 @@ class GitEngine:
         if code or not branch:
             return result(False, "Không xác định được nhánh; không đồng bộ detached HEAD", cmd="git branch --show-current", raw_error=err)
 
-        code, dirty, err = self.run_cmd(["status", "--porcelain"], repo_path, timeout)
-        if code:
-            return result(False, "Không kiểm tra được trạng thái worktree: " + err, cmd="git status --porcelain", raw_error=err)
-        if dirty:
-            return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)", cmd="git status --porcelain", raw_error=f"Dirty files:\n{dirty.strip()}")
-
         code, remotes, err = self.run_cmd(["remote"], repo_path, timeout)
         names = remotes.splitlines() if not code else []
         remote = "origin" if "origin" in names else (names[0] if names else "")
         if not remote:
             return result(False, "Chưa gắn remote", cmd="git remote", raw_error="No remote configured")
+
+        code, dirty, err = self.run_cmd(["status", "--porcelain"], repo_path, timeout)
+        if code:
+            return result(False, "Không kiểm tra được trạng thái worktree: " + err, cmd="git status --porcelain", raw_error=err)
+
+        auto_committed = False
+        if dirty:
+            if action in ("pull", "smart_sync"):
+                return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)", cmd="git status --porcelain", raw_error=f"Dirty files:\n{dirty.strip()}")
+            elif action == "push":
+                # Tự động commit các file thay đổi (dirty) trước khi push theo yêu cầu UX
+                code, out, err = self.run_cmd(["add", "-A"], repo_path, timeout)
+                if code != 0:
+                    return result(False, "Không thể stage thay đổi để commit: " + err, cmd="git add -A", raw_error=err)
+                commit_msg = "chore: auto-commit changes before push"
+                code, out, err = self.run_cmd(["commit", "-m", commit_msg], repo_path, timeout)
+                if code != 0:
+                    raw_err = (err or out).strip()
+                    hint = ""
+                    if "tell me who you are" in raw_err.lower() or "user.email" in raw_err.lower():
+                        hint = "Chưa cấu hình user.name / user.email trong Git. "
+                    elif "nothing to commit" in raw_err.lower():
+                        pass
+                    else:
+                        return result(False, f"Lỗi commit tự động: {hint}{raw_err}".strip(), cmd=f'git commit -m "{commit_msg}"', raw_error=raw_err)
+                auto_committed = True
 
         if action == "smart_sync":
             code, _, err = self.run_cmd(["fetch", remote, branch], repo_path, timeout)
@@ -319,7 +342,8 @@ class GitEngine:
         raw_output = ((err or "") + ("\n" + out if out else "")).strip()
 
         if code == 0:
-            return result(True, f"Đã {action} thành công", action, cmd=cmd_str, raw_error=raw_output)
+            msg = "Đã commit và push thành công" if auto_committed else f"Đã {action} thành công"
+            return result(True, msg, action, cmd=cmd_str, raw_error=raw_output)
         else:
             err_lower = raw_output.lower()
             hint = ""
@@ -334,5 +358,6 @@ class GitEngine:
             elif "not possible to fast-forward" in err_lower or "non-fast-forward" in err_lower:
                 hint = "Nhánh đã bị phân kỳ (Diverged), không thể auto fast-forward."
 
-            msg = f"Lỗi {action}: {hint} {raw_output}".strip() if hint else f"Lỗi {action}: {raw_output}"
+            prefix = f"Lỗi {action} (đã tạo commit cục bộ)" if auto_committed else f"Lỗi {action}"
+            msg = f"{prefix}: {hint} {raw_output}".strip() if hint else f"{prefix}: {raw_output}"
             return result(False, msg, action, cmd=cmd_str, raw_error=raw_output)

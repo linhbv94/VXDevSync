@@ -87,7 +87,9 @@ flowchart TD
 ```
 
 ### Nguyên tắc An toàn trong Git Sync:
-- **Nguyên tắc "Safe-Skip" với Dirty Repo:** Tuyệt đối không tự động pull hoặc push đè lên các repo đang có file sửa đổi dở dang (Dirty), trừ khi người dùng chủ động commit hoặc stash thủ công.
+- **Nguyên tắc "Safe-Skip" và "Auto-Commit trước khi Push":**
+  - Thao tác **Pull** hoặc **Smart Sync**: Giữ nguyên nguyên tắc Safe-Skip, tuyệt đối không tự động pull đè lên các repo đang có file sửa đổi dở dang (Dirty) để tránh xung đột hoặc ghi đè mất mã nguồn local.
+  - Thao tác **Push** (chọn repo nhấn Push, hoặc "Push tất cả"): Engine tự động stage (`git add -A`) và commit (`git commit -m "chore: auto-commit changes before push"`) trước khi push lên remote, giải phóng người dùng khỏi việc phải commit thủ công khi chỉ muốn đẩy thay đổi lên remote.
 - **Bảo vệ nhánh Diverged:** Khi repo bị lệch cả 2 chiều (vừa có commit mới ở local, vừa có commit mới ở remote), hệ thống hiển thị cảnh báo màu đỏ và yêu cầu người dùng merge thủ công, không tự động force push làm mất code.
 
 ---
