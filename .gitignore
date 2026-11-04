@@ -45,3 +45,4 @@ dist/
 
 .release_keys/
 .build_cache/
+docs
