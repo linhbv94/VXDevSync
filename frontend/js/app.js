@@ -1174,7 +1174,9 @@ async function executeSkillsUnifiedSync() {
 
     if (res.success) {
       let summaryMsg = devText("Đã gom ") + res.upstream_count + devText(" skills mới, phân bổ sang ") + res.downstream_agents.length + devText(" agents. ");
-      if (res.rules_up_changed && res.rules_up_msg) {
+      if (!res.rules_up_ok && res.rules_up_msg) {
+        summaryMsg += res.rules_up_msg + " ";
+      } else if (res.rules_up_changed && res.rules_up_msg) {
         summaryMsg += res.rules_up_msg + " ";
       } else if (res.rules_deployed && res.rules_deployed.length > 0) {
         summaryMsg += devText("Đã cập nhật rules cho ") + res.rules_deployed.join(", ") + ". ";
@@ -1184,8 +1186,12 @@ async function executeSkillsUnifiedSync() {
       }
       summaryMsg = summaryMsg.trim();
       if (hintElem) hintElem.textContent = summaryMsg;
-      renderSkillsProgress(5, 5, 100, devText("Đồng bộ Kỹ năng & Rules hoàn tất!"), summaryMsg, true, false);
-      showToast(devText("Đồng bộ Kỹ năng & Rules hoàn tất thành công!"), "success");
+      renderSkillsProgress(5, 5, 100, devText("Đồng bộ Kỹ năng & Rules hoàn tất!"), summaryMsg, true, !res.rules_up_ok);
+      if (!res.rules_up_ok && res.rules_up_msg) {
+        showToast(res.rules_up_msg, "warning");
+      } else {
+        showToast(devText("Đồng bộ Kỹ năng & Rules hoàn tất thành công!"), "success");
+      }
       hideSkillsProgress(2500);
       triggerSkillsScan();
     } else {

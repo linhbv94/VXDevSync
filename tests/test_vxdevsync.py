@@ -178,6 +178,70 @@ class TestVXDevSync(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(lib_file.read_text(encoding="utf-8").strip(), "Updated Rules From Claude User")
 
+    def test_rules_adapter_claude_crlf_header_strips_cleanly(self):
+        import time
+        import os
+        from src.adapter_engine import CLAUDE_HEADER_METADATA
+        lib_dir = self.test_path / "central_lib_claude_crlf"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        claude_dir = self.test_path / "agents" / "claude_crlf"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+
+        adapter = AdapterEngine()
+        lib_file = lib_dir / "AGENTS.md"
+        lib_file.write_text("Base Content", encoding="utf-8")
+        t_old = time.time() - 50
+        os.utime(lib_file, (t_old, t_old))
+
+        # Claude file với CRLF ở cả header và body
+        crlf_header = CLAUDE_HEADER_METADATA.replace("\n", "\r\n")
+        claude_raw = crlf_header + "Line 1 CRLF\r\nLine 2 CRLF"
+        claude_file = claude_dir / "CLAUDE.md"
+        claude_file.write_bytes(claude_raw.encode("utf-8"))
+        t_new = time.time()
+        os.utime(claude_file, (t_new, t_new))
+
+        changed, msg = adapter.sync_rules_upstream(lib_dir, {"claude": str(claude_dir)}, ["claude"])
+        self.assertTrue(changed)
+        result_text = lib_file.read_text(encoding="utf-8")
+        self.assertNotIn("Claude Code Project & Global Instructions", result_text)
+        self.assertIn("Line 1 CRLF", result_text)
+
+    def test_rules_adapter_multi_agent_conflict_prevents_overwrite(self):
+        import time
+        import os
+        lib_dir = self.test_path / "central_lib_conflict"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        codex_dir = self.test_path / "agents" / "codex_conflict"
+        codex_dir.mkdir(parents=True, exist_ok=True)
+        anti_dir = self.test_path / "agents" / "anti_conflict"
+        anti_dir.mkdir(parents=True, exist_ok=True)
+
+        adapter = AdapterEngine()
+        # 1. Base rules trong Library
+        lib_file = lib_dir / "AGENTS.md"
+        lib_file.write_text("Base Shared Rules", encoding="utf-8")
+        t_old = time.time() - 100
+        os.utime(lib_file, (t_old, t_old))
+
+        # 2. Hai agent sửa 2 nội dung khác nhau
+        (codex_dir / "AGENTS.md").write_text("Codex Unique Rules", encoding="utf-8")
+        os.utime(codex_dir / "AGENTS.md", (time.time() - 10, time.time() - 10))
+
+        (anti_dir / "AGENTS.md").write_text("Anti Unique Rules", encoding="utf-8")
+        os.utime(anti_dir / "AGENTS.md", (time.time(), time.time()))
+
+        agent_paths = {"codex": str(codex_dir), "anti": str(anti_dir)}
+        changed, msg = adapter.sync_rules_upstream(lib_dir, agent_paths, ["codex", "anti"])
+
+        # Phải nhận diện xung đột và từ chối ghi đè
+        self.assertFalse(changed)
+        self.assertIn("Xung đột rules", msg)
+        # File Library và cả 2 Agent đều phải được bảo toàn nguyên vẹn
+        self.assertEqual(lib_file.read_text(encoding="utf-8"), "Base Shared Rules")
+        self.assertEqual((codex_dir / "AGENTS.md").read_text(encoding="utf-8"), "Codex Unique Rules")
+        self.assertEqual((anti_dir / "AGENTS.md").read_text(encoding="utf-8"), "Anti Unique Rules")
+
     def test_git_scan_and_status(self):
         # Tạo mock repo Git
         repo_dir = self.test_path / "mock_repo"

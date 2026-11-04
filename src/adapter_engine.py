@@ -16,6 +16,15 @@ class AdapterEngine:
     def get_file_hash(filepath: Path) -> str:
         return safe_sync_io.file_hash(filepath.parent, filepath.name)
 
+    @staticmethod
+    def strip_claude_header(text: str) -> str:
+        """Bóc tách phần header CLAUDE_HEADER_METADATA ở đầu tệp, hỗ trợ cả CRLF và LF."""
+        normalized = text.replace("\r\n", "\n")
+        norm_header = CLAUDE_HEADER_METADATA.replace("\r\n", "\n").strip()
+        trimmed = normalized.lstrip()
+        if trimmed.startswith(norm_header):
+            return trimmed[len(norm_header):].lstrip()
+        return normalized
 
     def get_agent_rules_files(self, agent_name: str, agent_dir_str: str) -> List[Path]:
         if not agent_dir_str:
@@ -42,19 +51,21 @@ class AdapterEngine:
         """
         [Upstream Rules Sync]: Phát hiện nếu AGENTS.md hoặc CLAUDE.md ở bất kỳ Agent nào mới hơn
         bản trong Central Library (AGENTS.md), tự động gom về Library.
+        Chống xung đột (Conflict Guard): Nếu nhiều agent cùng sửa đổi với nội dung khác nhau,
+        từ chối tự ý ghi đè và dừng để bảo vệ an toàn dữ liệu.
         """
         lib_root_file = library_path / "AGENTS.md"
         lib_exists = lib_root_file.exists() and lib_root_file.stat().st_size > 0
         lib_mtime = lib_root_file.stat().st_mtime if lib_exists else 0.0
-        lib_hash = self.get_file_hash(lib_root_file) if lib_exists else ""
         lib_text = ""
         if lib_exists:
             try:
                 lib_text = safe_sync_io.read_text(lib_root_file.parent, lib_root_file.name).replace("\r\n", "\n").strip()
-            except Exception:
-                pass
+            except Exception as e:
+                return False, f"Lỗi đọc AGENTS.md Thư viện trung tâm: {e}"
 
-        newer_agent_rules: Optional[Tuple[Path, str, str, float]] = None
+        # Thu thập các agent có rules khác với Central Library
+        modified_agents: Dict[str, Tuple[Path, str, float]] = {}
 
         for agent_name in selected_agents:
             agent_dir_str = agent_paths.get(agent_name, "")
@@ -64,46 +75,68 @@ class AdapterEngine:
                 if not rf.exists() or rf.stat().st_size == 0:
                     continue
 
-                rf_mtime = rf.stat().st_mtime
-                if lib_exists and rf_mtime <= lib_mtime:
-                    continue
-
                 try:
                     content = safe_sync_io.read_text(rf.parent, rf.name)
-                    if rf.name == "CLAUDE.md" and CLAUDE_HEADER_METADATA.strip() in content:
-                        clean_content = content.replace(CLAUDE_HEADER_METADATA, "").strip()
+                    if rf.name == "CLAUDE.md":
+                        clean_content = self.strip_claude_header(content)
                     else:
                         clean_content = content
 
                     norm_clean = clean_content.replace("\r\n", "\n").strip()
+                    # Bỏ qua nếu nội dung thực tế giống hệt Central Library
                     if lib_exists and norm_clean == lib_text:
                         continue
 
-                    if lib_exists and rf.name != "CLAUDE.md":
-                        rf_hash = self.get_file_hash(rf)
-                        if rf_hash and rf_hash == lib_hash:
-                            continue
-
-                    if newer_agent_rules is None or rf_mtime > newer_agent_rules[3]:
-                        newer_agent_rules = (rf, agent_name, clean_content, rf_mtime)
+                    rf_mtime = rf.stat().st_mtime
+                    modified_agents[agent_name] = (rf, clean_content, rf_mtime)
                 except ValueError:
                     raise
-                except Exception:
-                    continue
+                except Exception as e:
+                    return False, f"Lỗi đọc rules từ {agent_name}: {e}"
 
-        if newer_agent_rules:
-            rf, agent_name, content, agent_mtime = newer_agent_rules
-            try:
-                safe_sync_io.ensure_directory(library_path)
-                safe_sync_io.write_text(lib_root_file.parent, lib_root_file.name, content, mtime=agent_mtime)
-                action_desc = "Khởi tạo" if not lib_exists else "Gom cập nhật"
-                return True, f"{action_desc} AGENTS.md từ {agent_name} ({rf.name}) về Thư viện trung tâm."
-            except ValueError:
-                raise
-            except Exception as e:
-                return False, f"Lỗi ghi rules vào Thư viện từ {agent_name}: {e}"
+        # Trường hợp 1: Không có Agent nào thay đổi nội dung so với Library
+        if not modified_agents:
+            return True, ""
 
-        return False, ""
+        # Trường hợp 2: Đúng 1 Agent có thay đổi
+        if len(modified_agents) == 1:
+            agent_name, (rf, clean_content, rf_mtime) = next(iter(modified_agents.items()))
+            if not lib_exists or rf_mtime >= lib_mtime:
+                try:
+                    safe_sync_io.ensure_directory(library_path)
+                    safe_sync_io.write_text(lib_root_file.parent, lib_root_file.name, clean_content, mtime=rf_mtime)
+                    action_desc = "Khởi tạo" if not lib_exists else "Gom cập nhật"
+                    return True, f"{action_desc} AGENTS.md từ {agent_name} ({rf.name}) về Thư viện trung tâm."
+                except ValueError:
+                    raise
+                except Exception as e:
+                    return False, f"Lỗi ghi rules vào Thư viện từ {agent_name}: {e}"
+            else:
+                # rf_mtime < lib_mtime: Library có bản mới hơn, Library sẽ deploy downstream xuống agent này
+                return True, ""
+
+        # Trường hợp 3: Nhiều Agent có sửa đổi
+        # Kiểm tra xem tất cả các agent có cùng một nội dung mới không
+        distinct_contents = {v[1].replace("\r\n", "\n").strip() for v in modified_agents.values()}
+        if len(distinct_contents) == 1:
+            # Nội dung đồng nhất, chọn timestamp mới nhất
+            latest_agent = max(modified_agents.items(), key=lambda x: x[1][2])
+            agent_name, (rf, clean_content, rf_mtime) = latest_agent
+            if not lib_exists or rf_mtime >= lib_mtime:
+                try:
+                    safe_sync_io.ensure_directory(library_path)
+                    safe_sync_io.write_text(lib_root_file.parent, lib_root_file.name, clean_content, mtime=rf_mtime)
+                    return True, f"Gom cập nhật AGENTS.md đồng nhất từ {', '.join(modified_agents.keys())} về Thư viện trung tâm."
+                except ValueError:
+                    raise
+                except Exception as e:
+                    return False, f"Lỗi ghi rules vào Thư viện: {e}"
+            else:
+                return True, ""
+        else:
+            # XUNG ĐỘT THỰC SỰ: Các agent có nội dung sửa đổi khác biệt nhau
+            conflict_names = ", ".join(sorted(modified_agents.keys()))
+            return False, f"Xung đột rules: Các Agent [{conflict_names}] có nội dung sửa đổi khác nhau. Tạm dừng đồng bộ rules để tránh mất dữ liệu."
 
     def deploy_rules_downstream(
         self,

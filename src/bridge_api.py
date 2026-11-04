@@ -445,23 +445,29 @@ class BridgeApi:
 
             # 4. Rules Adapter (Upstream + Downstream)
             self._set_sync_progress("skills", 4, 5, "Đồng bộ Kỹ năng & Rules (4/5)...", "Chuẩn hóa bộ quy tắc AGENTS.md sang CLAUDE.md...", active=True)
-            rules_up_changed, rules_up_msg = self._adapter_engine.sync_rules_upstream(
+            rules_up_ok, rules_up_msg = self._adapter_engine.sync_rules_upstream(
                 library_path=lib_path,
                 agent_paths=agent_paths,
                 selected_agents=selected_agents
             )
-            rules_deployed = self._adapter_engine.deploy_rules_downstream(
-                library_path=lib_path,
-                agent_paths=agent_paths,
-                selected_agents=selected_agents
-            )
+            # CHỐT CHẶN AN TOÀN: Nếu Upstream gặp lỗi hoặc xung đột, không chạy downstream để bảo vệ dữ liệu Agent
+            if not rules_up_ok:
+                rules_deployed = []
+            else:
+                rules_deployed = self._adapter_engine.deploy_rules_downstream(
+                    library_path=lib_path,
+                    agent_paths=agent_paths,
+                    selected_agents=selected_agents
+                )
 
             # 5. Git Commit & Push
             self._set_sync_progress("skills", 5, 5, "Đồng bộ Kỹ năng & Rules (5/5)...", "Đồng bộ Thư viện Kỹ năng lên GitHub...", active=True)
             _, git_pushed, git_msg = self._commit_library_changes(lib_path, "chore(skills): sync skills and rules")
 
             progress_detail = f"Đã gom {len(upstream_files)} skills mới, phân bổ sang {len(downstream_agents)} agents."
-            if rules_up_changed and rules_up_msg:
+            if not rules_up_ok and rules_up_msg:
+                progress_detail += f" {rules_up_msg}"
+            elif rules_up_msg:
                 progress_detail += f" {rules_up_msg}"
             elif rules_deployed:
                 progress_detail += f" Đã triển khai rules ({', '.join(rules_deployed)})."
@@ -473,7 +479,8 @@ class BridgeApi:
                 "upstream_count": len(upstream_files),
                 "upstream_files": upstream_files,
                 "downstream_agents": downstream_agents,
-                "rules_up_changed": rules_up_changed,
+                "rules_up_ok": rules_up_ok,
+                "rules_up_changed": bool(rules_up_ok and rules_up_msg),
                 "rules_up_msg": rules_up_msg,
                 "rules_deployed": rules_deployed,
                 "purged_tombstones": purged,
