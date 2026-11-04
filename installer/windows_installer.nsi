@@ -2,7 +2,7 @@ Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 !ifndef VERSION
-  !define VERSION "1.0.10"
+  !define VERSION "1.0.11"
 !endif
 Name "VXDevSync"
 OutFile "dist\vxdevsync_${VERSION}_windows_x64_setup.exe"
