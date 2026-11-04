@@ -706,6 +706,77 @@ class TestVXDevSync(unittest.TestCase):
         # total_count chỉ đếm số lượng skills thực tế
         self.assertEqual(inv["total_count"], 1)
 
+    def test_skills_inventory_status_classification(self):
+        """Kiểm tra phân loại trạng thái chi tiết của Agent: synced, new, modified, outdated, missing."""
+        import time, os
+        lib_dir = self.test_path / "lib_status"
+        lib_dir.mkdir()
+        (lib_dir / "skills").mkdir()
+
+        # Skill 1: synced trên anti, modified trên codex (codex mtime mới hơn)
+        (lib_dir / "skills" / "skill_shared").mkdir()
+        lib_file = lib_dir / "skills" / "skill_shared" / "SKILL.md"
+        lib_file.write_text("# Shared Original", encoding="utf-8")
+        lib_mtime = time.time() - 3600
+        os.utime(lib_file, (lib_mtime, lib_mtime))
+
+        # Skill 2: Thư viện mới hơn agent (outdated trên anti)
+        (lib_dir / "skills" / "skill_outdated").mkdir()
+        outdated_lib = lib_dir / "skills" / "skill_outdated" / "SKILL.md"
+        outdated_lib.write_text("# Outdated Lib Version", encoding="utf-8")
+        os.utime(outdated_lib, (time.time(), time.time()))
+
+        anti_dir = self.test_path / "status_anti"
+        anti_dir.mkdir()
+        (anti_dir / "skills" / "skill_shared").mkdir(parents=True)
+        anti_shared = anti_dir / "skills" / "skill_shared" / "SKILL.md"
+        anti_shared.write_text("# Shared Original", encoding="utf-8")
+        os.utime(anti_shared, (lib_mtime, lib_mtime))
+
+        (anti_dir / "skills" / "skill_outdated").mkdir(parents=True)
+        anti_outdated = anti_dir / "skills" / "skill_outdated" / "SKILL.md"
+        anti_outdated.write_text("# Older Version", encoding="utf-8")
+        os.utime(anti_outdated, (lib_mtime - 7200, lib_mtime - 7200))
+
+        # Skill 3: Chỉ có trên codex (new)
+        codex_dir = self.test_path / "status_codex"
+        codex_dir.mkdir()
+        (codex_dir / "skills" / "skill_new_local").mkdir(parents=True)
+        (codex_dir / "skills" / "skill_new_local" / "SKILL.md").write_text("# Brand New", encoding="utf-8")
+
+        # codex sửa skill_shared mới hơn lib (modified)
+        (codex_dir / "skills" / "skill_shared").mkdir(parents=True)
+        codex_shared = codex_dir / "skills" / "skill_shared" / "SKILL.md"
+        codex_shared.write_text("# Modified by Codex", encoding="utf-8")
+        os.utime(codex_shared, (time.time() + 10, time.time() + 10))
+
+        self.api._config_manager.config.skills_sync.skills_lib = str(lib_dir)
+        self.api._config_manager.config.skills_sync.custom_agent_paths["anti"] = str(anti_dir)
+        self.api._config_manager.config.skills_sync.custom_agent_paths["codex"] = str(codex_dir)
+        self.api._config_manager.config.skills_sync.agents = {"anti": 1, "codex": 1, "claude": 0}
+
+        inv = self.api.get_skills_inventory()
+        self.assertTrue(inv["success"])
+
+        skills_by_name = {s["name"]: s for s in inv["skills"]}
+
+        # 1. skill_shared: anti là synced, codex là modified
+        shared_item = skills_by_name["skill_shared"]
+        self.assertEqual(shared_item["agents"]["anti"]["status"], "synced")
+        self.assertEqual(shared_item["agents"]["codex"]["status"], "modified")
+        self.assertEqual(shared_item["agents"]["claude"]["status"], "missing")
+
+        # 2. skill_outdated: anti là outdated (vì lib mtime mới hơn)
+        outdated_item = skills_by_name["skill_outdated"]
+        self.assertEqual(outdated_item["agents"]["anti"]["status"], "outdated")
+        self.assertEqual(outdated_item["agents"]["codex"]["status"], "missing")
+
+        # 3. skill_new_local: codex là new (vì lib chưa có)
+        new_item = skills_by_name["skill_new_local"]
+        self.assertFalse(new_item["in_library"])
+        self.assertEqual(new_item["agents"]["codex"]["status"], "new")
+        self.assertEqual(new_item["agents"]["anti"]["status"], "missing")
+
     def test_validate_skill_name_rejects_rules_files(self):
         """Kiểm tra chốt chặn an toàn: không cho phép xóa nhầm file quy tắc hệ thống."""
         from src.skills_engine import SkillsEngine

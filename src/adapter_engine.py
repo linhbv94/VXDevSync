@@ -65,7 +65,7 @@ class AdapterEngine:
                 target_file = agent_dir / "AGENTS.md"
 
             if not target_file.exists() or not target_file.is_file() or target_file.stat().st_size == 0:
-                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False)
+                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False, status="missing")
                 continue
 
             try:
@@ -73,9 +73,25 @@ class AdapterEngine:
                 clean_text = self.strip_claude_header(raw_text).replace("\r\n", "\n").strip() if agent_name == "claude" else raw_text.replace("\r\n", "\n").strip()
                 is_synced = bool(lib_exists and clean_text == lib_text and len(lib_text) > 0)
                 mtime = target_file.stat().st_mtime
-                agents_dict[agent_name] = AgentPresence(exists=True, is_synced=is_synced, mtime=mtime, file_count=1)
+
+                if is_synced:
+                    status = "synced"
+                elif not lib_exists:
+                    status = "new"
+                elif mtime > lib_mtime:
+                    status = "modified"
+                else:
+                    status = "outdated"
+
+                agents_dict[agent_name] = AgentPresence(
+                    exists=True,
+                    is_synced=is_synced,
+                    mtime=mtime,
+                    file_count=1,
+                    status=status
+                )
             except Exception:
-                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False)
+                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False, status="missing")
 
         return SkillItem(
             name="AGENTS.md",

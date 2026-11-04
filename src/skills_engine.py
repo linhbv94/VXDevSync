@@ -14,6 +14,7 @@ class AgentPresence:
     is_synced: bool = False
     mtime: float = 0.0
     file_count: int = 0
+    status: str = "missing"
 
 @dataclass
 class SkillItem:
@@ -148,13 +149,13 @@ class SkillsEngine:
 
         for skill_name in sorted(skills_set):
             in_lib = (lib_skills_dir / skill_name).is_dir()
-            lib_hash, _, _ = self.get_dir_hash_and_mtime(lib_skills_dir / skill_name, ignore_patterns) if in_lib else ("", 0.0, 0)
+            lib_hash, lib_mtime, _ = self.get_dir_hash_and_mtime(lib_skills_dir / skill_name, ignore_patterns) if in_lib else ("", 0.0, 0)
 
             agents_dict: Dict[str, AgentPresence] = {}
             for agent in ["anti", "codex", "claude"]:
                 agent_dir_str = agent_paths.get(agent, "")
                 if not agent_dir_str:
-                    agents_dict[agent] = AgentPresence(exists=False, is_synced=False)
+                    agents_dict[agent] = AgentPresence(exists=False, is_synced=False, status="missing")
                     continue
 
                 agent_skill_dir = Path(agent_dir_str) / "skills" / skill_name
@@ -162,9 +163,23 @@ class SkillsEngine:
                 if exists:
                     ag_hash, ag_mtime, count = self.get_dir_hash_and_mtime(agent_skill_dir, ignore_patterns)
                     is_synced = (in_lib and ag_hash == lib_hash and lib_hash != "")
-                    agents_dict[agent] = AgentPresence(exists=True, is_synced=is_synced, mtime=ag_mtime, file_count=count)
+                    if is_synced:
+                        status = "synced"
+                    elif not in_lib:
+                        status = "new"
+                    elif ag_mtime > lib_mtime:
+                        status = "modified"
+                    else:
+                        status = "outdated"
+                    agents_dict[agent] = AgentPresence(
+                        exists=True,
+                        is_synced=is_synced,
+                        mtime=ag_mtime,
+                        file_count=count,
+                        status=status
+                    )
                 else:
-                    agents_dict[agent] = AgentPresence(exists=False, is_synced=False)
+                    agents_dict[agent] = AgentPresence(exists=False, is_synced=False, status="missing")
 
             item = SkillItem(
                 name=skill_name,

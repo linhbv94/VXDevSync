@@ -1123,12 +1123,25 @@ function renderSkillsTable() {
       ? `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_29f843752d6e">Có mặt</span></span>`
       : `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_ca7704d32d0b">Thiếu</span></span>`;
 
-    // Render helper for agents
+    // Render helper for agents with explicit status: synced, new, modified, outdated, missing
     const getAgentBadge = (agentKey) => {
       const p = skill.agents[agentKey];
-      if (!p || !p.exists) return `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_bc2b97d69a94">Chưa có</span></span>`;
-      if (p.is_synced) return `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_9950cc180da2">Đồng bộ</span></span>`;
-      return `<span class="badge badge-warning"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_aedec7e35235">Lệch hash</span></span>`;
+      if (!p || !p.exists || p.status === "missing") {
+        return `<span class="badge badge-muted" title="${devText("Chưa cài đặt")}"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_bc2b97d69a94">Chưa có</span></span>`;
+      }
+      if (p.is_synced || p.status === "synced") {
+        return `<span class="badge badge-success" title="${devText("Khớp 100% với Thư viện")}"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_9950cc180da2">Đồng bộ</span></span>`;
+      }
+      if (p.status === "new") {
+        return `<span class="badge badge-cyan" title="${devText("Kỹ năng/Quy tắc mới tạo tại Agent, chưa có trong Thư viện")}"><span class="badge-dot badge-dot-cyan"></span><span data-ui-copy="m_status_new">Mới</span></span>`;
+      }
+      if (p.status === "modified") {
+        return `<span class="badge badge-warning" title="${devText("Bản tại Agent mới hơn Thư viện (sẽ gom về Thư viện khi sync)")}"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_status_modified">Đã sửa</span></span>`;
+      }
+      if (p.status === "outdated") {
+        return `<span class="badge badge-warning" style="background: rgba(234, 179, 8, 0.12); color: #eab308;" title="${devText("Thư viện mới hơn bản tại Agent (sẽ cập nhật từ Thư viện khi sync)")}"><span class="badge-dot" style="background: #eab308; box-shadow: 0 0 4px #eab308;"></span><span data-ui-copy="m_status_outdated">Cũ hơn</span></span>`;
+      }
+      return `<span class="badge badge-warning" title="${devText("Khác biệt nội dung so với Thư viện")}"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_status_modified">Đã sửa</span></span>`;
     };
 
     if (skill.is_rules) {
