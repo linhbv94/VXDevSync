@@ -668,6 +668,52 @@ class TestVXDevSync(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("chore: auto-commit changes before push", log_out)
 
+    def test_skills_inventory_pins_rules_on_top(self):
+        """Kiểm tra file rule tổng (AGENTS.md) luôn được ghim ở đầu ma trận Kỹ năng (index 0)."""
+        lib_dir = self.test_path / "lib_pinned"
+        lib_dir.mkdir()
+        (lib_dir / "skills").mkdir()
+        (lib_dir / "skills" / "skill_a").mkdir()
+        (lib_dir / "skills" / "skill_a" / "SKILL.md").write_text("# Skill A", encoding="utf-8")
+        (lib_dir / "AGENTS.md").write_text("# Global Rules Standard", encoding="utf-8")
+
+        anti_dir = self.test_path / "agent_anti_pinned"
+        anti_dir.mkdir()
+        (anti_dir / "AGENTS.md").write_text("# Global Rules Standard", encoding="utf-8")
+
+        self.api._config_manager.config.skills_sync.skills_lib = str(lib_dir)
+        self.api._config_manager.config.skills_sync.custom_agent_paths["anti"] = str(anti_dir)
+        self.api._config_manager.config.skills_sync.agents = {"anti": 1, "codex": 0, "claude": 0}
+
+        inv = self.api.get_skills_inventory()
+        self.assertTrue(inv["success"])
+        self.assertGreaterEqual(len(inv["skills"]), 2)
+
+        # Dòng đầu tiên (index 0) BẮT BUỘC là AGENTS.md
+        first_item = inv["skills"][0]
+        self.assertEqual(first_item["name"], "AGENTS.md")
+        self.assertTrue(first_item.get("is_rules"))
+        self.assertTrue(first_item.get("is_pinned"))
+        self.assertTrue(first_item["in_library"])
+        self.assertTrue(first_item["agents"]["anti"]["exists"])
+        self.assertTrue(first_item["agents"]["anti"]["is_synced"])
+
+        # Dòng thứ hai là skill thông thường
+        second_item = inv["skills"][1]
+        self.assertEqual(second_item["name"], "skill_a")
+        self.assertFalse(second_item.get("is_rules", False))
+
+        # total_count chỉ đếm số lượng skills thực tế
+        self.assertEqual(inv["total_count"], 1)
+
+    def test_validate_skill_name_rejects_rules_files(self):
+        """Kiểm tra chốt chặn an toàn: không cho phép xóa nhầm file quy tắc hệ thống."""
+        from src.skills_engine import SkillsEngine
+        with self.assertRaises(ValueError):
+            SkillsEngine.validate_skill_name("AGENTS.md")
+        with self.assertRaises(ValueError):
+            SkillsEngine.validate_skill_name("CLAUDE.md")
+
 
 if __name__ == "__main__":
     unittest.main()

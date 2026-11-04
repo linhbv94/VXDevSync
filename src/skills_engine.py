@@ -21,6 +21,8 @@ class SkillItem:
     in_library: bool = False
     agents: Dict[str, AgentPresence] = field(default_factory=dict)
     is_tombstoned: bool = False
+    is_pinned: bool = False
+    is_rules: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -42,7 +44,7 @@ class SkillsEngine:
     @staticmethod
     def validate_skill_name(name: str) -> str:
         if (not isinstance(name, str) or not name or name != name.strip()
-                or name in (".", "..", ".system", ".git")
+                or name in (".", "..", ".system", ".git", "AGENTS.md", "CLAUDE.md")
                 or any(c in name for c in '/\\:\x00')
                 or Path(name).is_absolute()):
             raise ValueError("Tên skill không hợp lệ hoặc nằm ngoài phạm vi cho phép")

@@ -406,12 +406,12 @@
         </div>
 
         <!-- Bottom Action Bar for Skills Sync -->
-        <div class="sub-header" style="background: var(--bg-surface); border-color: var(--border-medium); padding: 8px 14px;">
-          <div id="skills-sync-hint" style="color: var(--text-secondary); font-size: 11px;"><span data-ui-copy="m_c5ef95ed4a93">
+        <div class="sub-header skills-action-bar" style="background: var(--bg-surface); border-color: var(--border-medium); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap;">
+          <div id="skills-sync-hint" style="color: var(--text-secondary); font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><span data-ui-copy="m_c5ef95ed4a93">
             Sẵn sàng đồng bộ Kỹ năng và Quy tắc AGENTS.md / CLAUDE.md.
           </span></div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-primary" id="btn-sync-skills-unified">
+          <div class="skills-action-buttons" style="display: flex; gap: 8px; flex-shrink: 0; margin-left: auto;">
+            <button class="btn-primary" id="btn-sync-skills-unified" style="white-space: nowrap;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
               </svg>

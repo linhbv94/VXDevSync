@@ -1,6 +1,8 @@
 from src import safe_sync_io
+from src.skills_engine import AgentPresence, SkillItem
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
+import hashlib
 
 CLAUDE_HEADER_METADATA = """# Claude Code Project & Global Instructions
 
@@ -25,6 +27,64 @@ class AdapterEngine:
         if trimmed.startswith(norm_header):
             return trimmed[len(norm_header):].lstrip()
         return normalized
+
+    def get_rules_status(
+        self,
+        library_path: Path,
+        agent_paths: Dict[str, str],
+        active_agents: List[str]
+    ) -> SkillItem:
+        """
+        Kiểm tra trạng thái file rule tổng (AGENTS.md tại Central Library và từng Agent,
+        CLAUDE.md tại Claude Code sau khi bóc tách header).
+        """
+        lib_root_file = library_path / "AGENTS.md"
+        lib_exists = lib_root_file.exists() and lib_root_file.is_file() and lib_root_file.stat().st_size > 0
+        lib_text = ""
+        lib_mtime = 0.0
+        if lib_exists:
+            try:
+                lib_text = safe_sync_io.read_text(lib_root_file.parent, lib_root_file.name).replace("\r\n", "\n").strip()
+                lib_mtime = lib_root_file.stat().st_mtime
+            except Exception:
+                lib_exists = False
+
+        agents_dict: Dict[str, AgentPresence] = {}
+        for agent_name in ["anti", "codex", "claude"]:
+            agent_dir_str = agent_paths.get(agent_name, "")
+            if not agent_dir_str:
+                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False)
+                continue
+
+            agent_dir = Path(agent_dir_str)
+            if agent_name in ["anti", "codex", "antigravity"]:
+                target_file = agent_dir.parent / "AGENTS.md" if agent_dir.name == "skills" else agent_dir / "AGENTS.md"
+            elif agent_name == "claude":
+                target_file = agent_dir / "CLAUDE.md"
+            else:
+                target_file = agent_dir / "AGENTS.md"
+
+            if not target_file.exists() or not target_file.is_file() or target_file.stat().st_size == 0:
+                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False)
+                continue
+
+            try:
+                raw_text = safe_sync_io.read_text(target_file.parent, target_file.name)
+                clean_text = self.strip_claude_header(raw_text).replace("\r\n", "\n").strip() if agent_name == "claude" else raw_text.replace("\r\n", "\n").strip()
+                is_synced = bool(lib_exists and clean_text == lib_text and len(lib_text) > 0)
+                mtime = target_file.stat().st_mtime
+                agents_dict[agent_name] = AgentPresence(exists=True, is_synced=is_synced, mtime=mtime, file_count=1)
+            except Exception:
+                agents_dict[agent_name] = AgentPresence(exists=False, is_synced=False)
+
+        return SkillItem(
+            name="AGENTS.md",
+            in_library=lib_exists,
+            agents=agents_dict,
+            is_tombstoned=False,
+            is_pinned=True,
+            is_rules=True
+        )
 
     def get_agent_rules_files(self, agent_name: str, agent_dir_str: str) -> List[Path]:
         if not agent_dir_str:

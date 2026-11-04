@@ -1277,3 +1277,23 @@ input:checked + .slider:before {
   text-overflow: ellipsis;
   overflow: hidden;
 }
+
+/* Skills Action Bar: Ensure unified sync button stays pinned to the right */
+.skills-action-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+  gap: 12px;
+}
+.skills-action-bar #skills-sync-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skills-action-bar .skills-action-buttons {
+  flex: 0 0 auto;
+  margin-left: auto;
+}

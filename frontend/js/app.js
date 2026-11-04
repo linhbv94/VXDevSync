@@ -1068,12 +1068,14 @@ async function triggerSkillsScan() {
     const res = await window.pywebview.api.get_skills_inventory();
     if (res.success) {
       state.skills = res.skills || [];
-      document.getElementById("count-skills-total").textContent = res.total_count;
+      const skillsCount = res.skills_count !== undefined ? res.skills_count : state.skills.filter(s => !s.is_rules).length;
+      document.getElementById("count-skills-total").textContent = skillsCount;
       renderSkillsTable();
 
-      // Đếm số skills của từng agent
+      // Đếm số skills của từng agent (không tính rules tổng)
       let antiCount = 0, codexCount = 0, claudeCount = 0;
       state.skills.forEach(s => {
+        if (s.is_rules) return;
         if (s.agents.anti && s.agents.anti.exists) antiCount++;
         if (s.agents.codex && s.agents.codex.exists) codexCount++;
         if (s.agents.claude && s.agents.claude.exists) claudeCount++;
@@ -1091,19 +1093,29 @@ function renderSkillsTable() {
   const tbody = document.getElementById("skills-tbody");
   tbody.innerHTML = "";
 
-  const filtered = state.skills.filter(s => {
+  const rulesItem = state.skills.find(s => s.is_rules);
+  const normalSkills = state.skills.filter(s => !s.is_rules);
+
+  const filteredNormal = normalSkills.filter(s => {
     if (state.skillsSearchQuery) {
       return s.name.toLowerCase().includes(state.skillsSearchQuery);
     }
     return true;
   });
 
-  if (filtered.length === 0) {
+  // Danh sách hiển thị: Luôn ghim dòng Rules tổng lên đầu tiên (Row 1, Pinned on top)
+  const displayList = [];
+  if (rulesItem) {
+    displayList.push(rulesItem);
+  }
+  displayList.push(...filteredNormal);
+
+  if (displayList.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;"><span data-ui-copy="m_5410e6a4f0ea">Không tìm thấy kỹ năng nào</span></td></tr>`;
     return;
   }
 
-  filtered.forEach(skill => {
+  displayList.forEach(skill => {
     const tr = document.createElement("tr");
 
     // Central Library status
@@ -1119,24 +1131,50 @@ function renderSkillsTable() {
       return `<span class="badge badge-warning"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_aedec7e35235">Lệch hash</span></span>`;
     };
 
-    tr.innerHTML = `
-      <td>
-        <strong style="color: var(--text-primary); font-family: var(--font-mono);">${escapeHtml(skill.name)}</strong>
-      </td>
-      <td>${libBadge}</td>
-      <td>${getAgentBadge("anti")}</td>
-      <td>${getAgentBadge("codex")}</td>
-      <td>${getAgentBadge("claude")}</td>
-      <td style="text-align: right;">
-        <button class="table-action-btn btn-danger-hover btn-delete-skill" title="Xóa triệt để" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;" data-ui-title="m_ddcbe18380c3">
-          ${SVG_ICONS.trash} <span><span data-ui-copy="m_57435a5c8444">Xóa</span></span>
-        </button>
-      </td>
-    `;
+    if (skill.is_rules) {
+      tr.style.background = "rgba(255, 255, 255, 0.02)";
+      tr.style.borderBottom = "1px solid var(--border-medium)";
+      tr.innerHTML = `
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-accent" style="font-size: 10px; padding: 2px 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 3px;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+              <span>Quy tắc</span>
+            </span>
+            <strong style="color: var(--text-primary); font-family: var(--font-mono); font-size: 12px;">${escapeHtml(skill.name)}</strong>
+            <span style="color: var(--text-muted); font-size: 11px;">(CLAUDE.md)</span>
+          </div>
+        </td>
+        <td>${libBadge}</td>
+        <td>${getAgentBadge("anti")}</td>
+        <td>${getAgentBadge("codex")}</td>
+        <td>${getAgentBadge("claude")}</td>
+        <td style="text-align: right;">
+          <span class="badge badge-muted" style="font-size: 10px; padding: 3px 8px; font-weight: 500; border: 1px dashed var(--border-medium); opacity: 0.85;" title="Quy tắc chung toàn hệ thống, ghim cố định không thể xóa">
+            Hệ thống
+          </span>
+        </td>
+      `;
+    } else {
+      tr.innerHTML = `
+        <td>
+          <strong style="color: var(--text-primary); font-family: var(--font-mono);">${escapeHtml(skill.name)}</strong>
+        </td>
+        <td>${libBadge}</td>
+        <td>${getAgentBadge("anti")}</td>
+        <td>${getAgentBadge("codex")}</td>
+        <td>${getAgentBadge("claude")}</td>
+        <td style="text-align: right;">
+          <button class="table-action-btn btn-danger-hover btn-delete-skill" title="Xóa triệt để" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;" data-ui-title="m_ddcbe18380c3">
+            ${SVG_ICONS.trash} <span><span data-ui-copy="m_57435a5c8444">Xóa</span></span>
+          </button>
+        </td>
+      `;
 
-    tr.querySelector(".btn-delete-skill").addEventListener("click", () => {
-      openCascadeDeleteModal(skill.name);
-    });
+      tr.querySelector(".btn-delete-skill").addEventListener("click", () => {
+        openCascadeDeleteModal(skill.name);
+      });
+    }
 
     tbody.appendChild(tr);
   });
@@ -1185,7 +1223,10 @@ async function executeSkillsUnifiedSync() {
         summaryMsg += res.git_msg;
       }
       summaryMsg = summaryMsg.trim();
-      if (hintElem) hintElem.textContent = summaryMsg;
+      if (hintElem) {
+        hintElem.textContent = summaryMsg;
+        hintElem.title = summaryMsg;
+      }
       renderSkillsProgress(5, 5, 100, devText("Đồng bộ Kỹ năng & Rules hoàn tất!"), summaryMsg, true, !res.rules_up_ok);
       if (!res.rules_up_ok && res.rules_up_msg) {
         showToast(res.rules_up_msg, "warning");
@@ -1195,7 +1236,11 @@ async function executeSkillsUnifiedSync() {
       hideSkillsProgress(2500);
       triggerSkillsScan();
     } else {
-      if (hintElem) hintElem.textContent = (devText("Lỗi: ") + (res.error) + devText(""));
+      const errText = devText("Lỗi: ") + (res.error) + devText("");
+      if (hintElem) {
+        hintElem.textContent = errText;
+        hintElem.title = errText;
+      }
       renderSkillsProgress(0, 5, 0, devText("Lỗi Đồng bộ Kỹ năng"), res.error, false, true);
       hideSkillsProgress(3000);
       showToast(res.error, "danger");
@@ -1203,7 +1248,11 @@ async function executeSkillsUnifiedSync() {
   } catch (err) {
     if (skillsInterval) { clearInterval(skillsInterval); skillsInterval = null; }
     console.error(err);
-    if (hintElem) hintElem.textContent = devText("Lỗi thực thi đồng bộ kỹ năng");
+    const failText = devText("Lỗi thực thi đồng bộ kỹ năng");
+    if (hintElem) {
+      hintElem.textContent = failText;
+      hintElem.title = failText;
+    }
     renderSkillsProgress(0, 5, 0, devText("Lỗi Đồng bộ Kỹ năng"), devText("Lỗi thực thi đồng bộ kỹ năng"), false, true);
     hideSkillsProgress(3000);
     showToast(devText("Lỗi thực thi đồng bộ kỹ năng"), "danger");

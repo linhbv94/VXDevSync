@@ -298,11 +298,23 @@ class BridgeApi:
             deleted_skills=cfg.skills_sync.deleted_skills
         )
 
+        # Trạng thái file rule tổng (AGENTS.md / CLAUDE.md)
+        rules_item = self._adapter_engine.get_rules_status(
+            library_path=lib_path,
+            agent_paths=agent_paths,
+            active_agents=active_agents
+        )
+
+        # Luôn ghim dòng rule tổng ở đầu danh sách (index 0)
+        all_items = [rules_item.to_dict()] + [s.to_dict() for s in inventory]
+
         return {
             "success": True,
             "skills_lib": str(lib_path),
-            "skills": [s.to_dict() for s in inventory],
+            "skills": all_items,
             "total_count": len(inventory),
+            "skills_count": len(inventory),
+            "rules_item": rules_item.to_dict(),
             "purged_tombstones": purged
         }
 
