@@ -1,3 +1,3 @@
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 APP_ID = "com.ztools.vxdevsync"
 REPOSITORY = "linhbv94/VXDevSync"

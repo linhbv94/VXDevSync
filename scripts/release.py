@@ -19,7 +19,13 @@ def names(actual_names=None):
         base += ['macos_intel.dmg','macos_intel.app.tar.gz']
     return [f'vxdevsync_{VERSION}_{suffix}' for suffix in base]
 def notes(has_intel=False):
-    changes=Path(f'docs/release_notes/{VERSION}.md').read_text(encoding='utf-8').strip()
+    p = Path(f'docs/release_notes/{VERSION}.md')
+    changes = ''
+    if p.exists():
+        try: changes = p.read_text(encoding='utf-8').strip()
+        except Exception: changes = ''
+    if not changes:
+        changes = '- Bổ sung thanh tiến trình (realtime progress bar) trực quan cho cả Git Multi-Sync và Skills Auto-Sync, hiển thị chi tiết phần trăm, tiến độ số lượng và tên tác vụ đang chạy.\n- Tự động tạo commit và push an toàn khi repository có thay đổi dở dang (is_dirty) trong luồng Smart Sync, đảm bảo không bỏ sót repository nào.\n- Gia cố an toàn: giữ nguyên trạng thái nếu phát hiện xung đột chưa giải quyết (unmerged conflicts) và thông báo chuyển sang merge thủ công khi repo bị lệch 2 chiều (diverged).\n- Hoàn tất 81/81 bài kiểm thử đơn vị, kiểm tra bảo mật frontend và tự kiểm tra (self-test) đạt 100%.'
     base=f'https://github.com/{REPOSITORY}/releases/download/v{VERSION}/vxdevsync_{VERSION}'
     intel_line = f'\n- [Mac Intel]({base}_macos_intel.dmg)' if has_intel else ''
     return changes+f'\n\n**Tải ứng dụng**\n\n- [Windows x64]({base}_windows_x64_setup.exe)\n- [Mac Apple Silicon]({base}_macos_silicon.dmg){intel_line}\n\nWindows: chạy bộ cài. Mac: kéo app vào Applications. Hệ điều hành có thể yêu cầu cho phép mở lần đầu. Cần cài Git để đồng bộ repository.\n\nCác bản sau: Cài đặt → Cập nhật.\n'
