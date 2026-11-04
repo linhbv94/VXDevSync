@@ -25,7 +25,7 @@
         </div>
 <nav data-vx-windows-menu class="windows-menu" aria-label="Menu ứng dụng" data-ui-aria-label="m_c2dd2bbb2fbe">
 <details><summary><span data-ui-copy="m_b3ed274aad9b">Tệp</span></summary><div class="window-menu-popup"><button data-click-target="btn-open-workspace"><span data-ui-copy="m_66f08971b2cb">Mở workspace…</span></button><button data-click-target="btn-open-settings"><span data-ui-copy="m_e7d9a9c4f9f7">Cài đặt…</span></button></div></details>
-<details><summary>Xem</summary><div class="window-menu-popup"><button data-click-target="tab-btn-git">Git Multi-Sync</button><button data-click-target="tab-btn-skills">Skills Auto-Sync</button><button data-click-target="btn-rescan-all"><span data-ui-copy="m_0ca1e4ed8bf9">Quét lại</span></button></div></details>
+<details><summary><span data-ui-copy="m_view">Xem</span></summary><div class="window-menu-popup"><button data-click-target="tab-btn-git">Git Multi-Sync</button><button data-click-target="tab-btn-skills">Skills Auto-Sync</button><button data-click-target="btn-rescan-all"><span data-ui-copy="m_0ca1e4ed8bf9">Quét lại</span></button></div></details>
 </nav>
 
       </div>
@@ -155,14 +155,14 @@
           <div class="sync-progress-info">
             <div class="sync-progress-title-wrap">
               <span class="sync-progress-spinner"></span>
-              <strong class="sync-progress-title" id="git-progress-title">Đang đồng bộ...</strong>
+              <strong class="sync-progress-title" id="git-progress-title"><span data-ui-copy="m_git_syncing">Đang đồng bộ...</span></strong>
             </div>
             <span class="sync-progress-counter" id="git-progress-counter">0/0 (0%)</span>
           </div>
           <div class="sync-progress-track">
             <div class="sync-progress-fill" id="git-progress-fill" style="width: 0%;"></div>
           </div>
-          <div class="sync-progress-detail" id="git-progress-detail">Đang chuẩn bị...</div>
+          <div class="sync-progress-detail" id="git-progress-detail"><span data-ui-copy="m_git_preparing">Đang chuẩn bị...</span></div>
         </div>
 
         <!-- Repos Table Container -->
@@ -358,7 +358,7 @@
         <!-- Skills Inventory Header -->
         <div class="selection-bar">
           <div class="selection-left">
-            <strong style="color: var(--text-primary); font-size: 12px;"><span data-ui-copy="m_85dc396c5d72">Ma trận Kỹ năng (Skills Inventory - </span><span id="count-skills-total">0</span>)</strong>
+            <strong style="color: var(--text-primary); font-size: 12px;"><span data-ui-copy="m_85dc396c5d72">Ma trận Kỹ năng</span> (<span id="count-skills-total">0</span>)</strong>
           </div>
           <div class="selection-right">
             <div class="search-input-wrap">
@@ -395,14 +395,14 @@
           <div class="sync-progress-info">
             <div class="sync-progress-title-wrap">
               <span class="sync-progress-spinner"></span>
-              <strong class="sync-progress-title" id="skills-progress-title">Đồng bộ Kỹ năng & Rules...</strong>
+              <strong class="sync-progress-title" id="skills-progress-title"><span data-ui-copy="m_skills_syncing">Đồng bộ Kỹ năng & Rules...</span></strong>
             </div>
             <span class="sync-progress-counter" id="skills-progress-counter">0%</span>
           </div>
           <div class="sync-progress-track">
             <div class="sync-progress-fill" id="skills-progress-fill" style="width: 0%;"></div>
           </div>
-          <div class="sync-progress-detail" id="skills-progress-detail">Đang chuẩn bị...</div>
+          <div class="sync-progress-detail" id="skills-progress-detail"><span data-ui-copy="m_git_preparing">Đang chuẩn bị...</span></div>
         </div>
 
         <!-- Bottom Action Bar for Skills Sync -->
@@ -441,7 +441,7 @@
         <div class="settings-body vx_settings_layout">
           <nav class="settings-sidebar vx_settings_nav">
             
-            <button type="button" class="vx_settings_tab settings-nav-item active" data-settings-tab="general"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span>Chung</span></button>
+            <button type="button" class="vx_settings_tab settings-nav-item active" data-settings-tab="general"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg><span><span data-ui-copy="m_general">Chung</span></span></button>
             <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="git-sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 7v10m0-4c8 0 12-1 12-5"/></svg><span>Git Multi-Sync</span></button>
             <button type="button" class="vx_settings_tab settings-nav-item" data-settings-tab="skills-sync"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></svg><span>Skills Auto-Sync</span></button>
             <div style="height: 1px; background: var(--border-subtle); margin: 6px 0;"></div>

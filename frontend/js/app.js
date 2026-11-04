@@ -114,6 +114,14 @@ function updateUIFromConfig() {
   updateAgentCardStatus("anti", agents.anti === 1);
   updateAgentCardStatus("codex", agents.codex === 1);
   updateAgentCardStatus("claude", agents.claude === 1);
+
+  // Re-render tables with new language if populated
+  if (typeof renderGitReposTable === "function") {
+    renderGitReposTable();
+  }
+  if (typeof renderSkillsTable === "function") {
+    renderSkillsTable();
+  }
 }
 
 function setCheckbox(id, val) {
@@ -134,7 +142,7 @@ function updateAgentCardStatus(agentKey, isActive) {
   if (statusElem) {
     statusElem.innerHTML = `
       <span class="status-dot ${isActive ? 'active' : 'inactive'}"></span>
-      <span class="status-text">${isActive ? devText("Đang kích hoạt") : devText("Chưa kích hoạt")}</span>
+      <span class="status-text">${isActive ? `<span data-ui-copy="m_830ff6b5422f">${devText("Đang kích hoạt")}</span>` : `<span data-ui-copy="m_e2fba40f847b">${devText("Chưa kích hoạt")}</span>`}</span>
     `;
   }
 }
@@ -553,7 +561,7 @@ function renderGitReposTable() {
 
     // Offset
     const offsetStr = isIgnored ? "--" : `+${repo.ahead_count} / -${repo.behind_count}`;
-    const suggestedActionStr = isIgnored ? devText("Đã loại trừ") : repo.suggested_action;
+    const suggestedActionStr = isIgnored ? devText("Đã loại trừ") : devText(repo.suggested_action);
 
     // Kiểm tra nếu repo này vừa bị sync lỗi
     const lastResult = state.lastSyncResults?.[repo.path];
@@ -570,7 +578,7 @@ function renderGitReposTable() {
 
     tr.innerHTML = `
       <td style="text-align: center;">
-        <input type="checkbox" class="repo-checkbox" ${isSelected ? "checked" : ""} ${isIgnored ? devText("disabled title='Repository đã bị loại trừ'") : ""}>
+        <input type="checkbox" class="repo-checkbox" ${isSelected ? "checked" : ""} ${isIgnored ? `disabled title="${escapeHtml(devText("Repository đã bị loại trừ"))}" data-ui-title="m_repo_ignored_title"` : ""}>
       </td>
       <td>
         <strong style="color: ${isIgnored ? 'var(--text-muted)' : 'var(--text-primary)'};">${escapeHtml(repo.name)}</strong>
@@ -589,12 +597,12 @@ function renderGitReposTable() {
       </td>
       <td style="text-align: right;">
         ${isIgnored
-          ? `<button class="table-action-btn btn-unexclude" title="Khôi phục (Bỏ loại trừ)" data-ui-title="m_f931daa9602a">${SVG_ICONS.eye}</button>
-             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="Repo đã bị loại trừ" data-ui-title="m_f213c2ef89d8">${SVG_ICONS.pull}</button>
-             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="Repo đã bị loại trừ" data-ui-title="m_f213c2ef89d8">${SVG_ICONS.push}</button>`
-          : `<button class="table-action-btn btn-exclude" title="Loại trừ repo khỏi quét & đồng bộ" data-ui-title="m_b50b631be52e">${SVG_ICONS.eyeOff}</button>
-             <button class="table-action-btn btn-pull" title="Chỉ Pull repo này" data-ui-title="m_e654f0f3c9a9">${SVG_ICONS.pull}</button>
-             <button class="table-action-btn btn-push" title="Chỉ Push repo này" data-ui-title="m_00a036125a41">${SVG_ICONS.push}</button>`
+          ? `<button class="table-action-btn btn-unexclude" title="${escapeHtml(devText("Khôi phục (Bỏ loại trừ)"))}" data-ui-title="m_f931daa9602a">${SVG_ICONS.eye}</button>
+             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="${escapeHtml(devText("Repo đã bị loại trừ"))}" data-ui-title="m_f213c2ef89d8">${SVG_ICONS.pull}</button>
+             <button class="table-action-btn" disabled style="opacity: 0.2; cursor: not-allowed;" title="${escapeHtml(devText("Repo đã bị loại trừ"))}" data-ui-title="m_f213c2ef89d8">${SVG_ICONS.push}</button>`
+          : `<button class="table-action-btn btn-exclude" title="${escapeHtml(devText("Loại trừ repo khỏi quét & đồng bộ"))}" data-ui-title="m_b50b631be52e">${SVG_ICONS.eyeOff}</button>
+             <button class="table-action-btn btn-pull" title="${escapeHtml(devText("Chỉ Pull repo này"))}" data-ui-title="m_e654f0f3c9a9">${SVG_ICONS.pull}</button>
+             <button class="table-action-btn btn-push" title="${escapeHtml(devText("Chỉ Push repo này"))}" data-ui-title="m_00a036125a41">${SVG_ICONS.push}</button>`
         }
       </td>
     `;
@@ -771,10 +779,10 @@ function renderGitProgress(current, total, percent, title, detail, isCompleted =
   banner.classList.toggle("is-completed", isCompleted);
   banner.classList.toggle("is-error", isError);
 
-  if (titleEl && title) titleEl.textContent = title;
+  if (titleEl && title) titleEl.textContent = devText(title);
   if (counterEl) counterEl.textContent = (current) + "/" + (total) + " (" + (percent) + "%)";
   if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, percent)) + "%";
-  if (detailEl && detail) detailEl.textContent = detail;
+  if (detailEl && detail) detailEl.textContent = devText(detail);
   banner.setAttribute("aria-valuenow", String(percent));
 }
 
@@ -801,10 +809,10 @@ function renderSkillsProgress(current, total, percent, title, detail, isComplete
   banner.classList.toggle("is-completed", isCompleted);
   banner.classList.toggle("is-error", isError);
 
-  if (titleEl && title) titleEl.textContent = title;
+  if (titleEl && title) titleEl.textContent = devText(title);
   if (counterEl) counterEl.textContent = (percent) + "%";
   if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, percent)) + "%";
-  if (detailEl && detail) detailEl.textContent = detail;
+  if (detailEl && detail) detailEl.textContent = devText(detail);
   banner.setAttribute("aria-valuenow", String(percent));
 }
 
@@ -1120,28 +1128,28 @@ function renderSkillsTable() {
 
     // Central Library status
     const libBadge = skill.in_library 
-      ? `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_29f843752d6e">Có mặt</span></span>`
-      : `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_ca7704d32d0b">Thiếu</span></span>`;
+      ? `<span class="badge badge-success"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_29f843752d6e">${devText("Có mặt")}</span></span>`
+      : `<span class="badge badge-muted"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_ca7704d32d0b">${devText("Thiếu")}</span></span>`;
 
     // Render helper for agents with explicit status: synced, new, modified, outdated, missing
     const getAgentBadge = (agentKey) => {
       const p = skill.agents[agentKey];
       if (!p || !p.exists || p.status === "missing") {
-        return `<span class="badge badge-muted" title="${devText("Chưa cài đặt")}"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_bc2b97d69a94">Chưa có</span></span>`;
+        return `<span class="badge badge-muted" title="${escapeHtml(devText("Chưa cài đặt"))}" data-ui-title="m_not_installed"><span class="badge-dot badge-dot-muted"></span><span data-ui-copy="m_bc2b97d69a94">${devText("Chưa có")}</span></span>`;
       }
       if (p.is_synced || p.status === "synced") {
-        return `<span class="badge badge-success" title="${devText("Khớp 100% với Thư viện")}"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_9950cc180da2">Đồng bộ</span></span>`;
+        return `<span class="badge badge-success" title="${escapeHtml(devText("Khớp 100% với Thư viện"))}" data-ui-title="m_synced_tooltip"><span class="badge-dot badge-dot-success"></span><span data-ui-copy="m_9950cc180da2">${devText("Đồng bộ")}</span></span>`;
       }
       if (p.status === "new") {
-        return `<span class="badge badge-cyan" title="${devText("Kỹ năng/Quy tắc mới tạo tại Agent, chưa có trong Thư viện")}"><span class="badge-dot badge-dot-cyan"></span><span data-ui-copy="m_status_new">Mới</span></span>`;
+        return `<span class="badge badge-cyan" title="${escapeHtml(devText("Kỹ năng/Quy tắc mới tạo tại Agent, chưa có trong Thư viện"))}" data-ui-title="m_new_tooltip"><span class="badge-dot badge-dot-cyan"></span><span data-ui-copy="m_status_new">${devText("Mới")}</span></span>`;
       }
       if (p.status === "modified") {
-        return `<span class="badge badge-warning" title="${devText("Bản tại Agent mới hơn Thư viện (sẽ gom về Thư viện khi sync)")}"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_status_modified">Đã sửa</span></span>`;
+        return `<span class="badge badge-warning" title="${escapeHtml(devText("Bản tại Agent mới hơn Thư viện (sẽ gom về Thư viện khi sync)"))}" data-ui-title="m_modified_tooltip"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_status_modified">${devText("Đã sửa")}</span></span>`;
       }
       if (p.status === "outdated") {
-        return `<span class="badge badge-warning" style="background: rgba(234, 179, 8, 0.12); color: #eab308;" title="${devText("Thư viện mới hơn bản tại Agent (sẽ cập nhật từ Thư viện khi sync)")}"><span class="badge-dot" style="background: #eab308; box-shadow: 0 0 4px #eab308;"></span><span data-ui-copy="m_status_outdated">Cũ hơn</span></span>`;
+        return `<span class="badge badge-warning" style="background: rgba(234, 179, 8, 0.12); color: #eab308;" title="${escapeHtml(devText("Thư viện mới hơn bản tại Agent (sẽ cập nhật từ Thư viện khi sync)"))}" data-ui-title="m_outdated_tooltip"><span class="badge-dot" style="background: #eab308; box-shadow: 0 0 4px #eab308;"></span><span data-ui-copy="m_status_outdated">${devText("Cũ hơn")}</span></span>`;
       }
-      return `<span class="badge badge-warning" title="${devText("Khác biệt nội dung so với Thư viện")}"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_status_modified">Đã sửa</span></span>`;
+      return `<span class="badge badge-warning" title="${escapeHtml(devText("Khác biệt nội dung so với Thư viện"))}" data-ui-title="m_diff_tooltip"><span class="badge-dot badge-dot-warning"></span><span data-ui-copy="m_status_modified">${devText("Đã sửa")}</span></span>`;
     };
 
     if (skill.is_rules) {
@@ -1152,7 +1160,7 @@ function renderSkillsTable() {
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="badge badge-accent" style="font-size: 10px; padding: 2px 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 3px;">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
-              <span>Quy tắc</span>
+              <span><span data-ui-copy="m_rules">${devText("Quy tắc")}</span></span>
             </span>
             <strong style="color: var(--text-primary); font-family: var(--font-mono); font-size: 12px;">${escapeHtml(skill.name)}</strong>
             <span style="color: var(--text-muted); font-size: 11px;">(CLAUDE.md)</span>
@@ -1163,8 +1171,8 @@ function renderSkillsTable() {
         <td>${getAgentBadge("codex")}</td>
         <td>${getAgentBadge("claude")}</td>
         <td style="text-align: right;">
-          <span class="badge badge-muted" style="font-size: 10px; padding: 3px 8px; font-weight: 500; border: 1px dashed var(--border-medium); opacity: 0.85;" title="Quy tắc chung toàn hệ thống, ghim cố định không thể xóa">
-            Hệ thống
+          <span class="badge badge-muted" style="font-size: 10px; padding: 3px 8px; font-weight: 500; border: 1px dashed var(--border-medium); opacity: 0.85;" title="${escapeHtml(devText("Quy tắc chung toàn hệ thống, ghim cố định không thể xóa"))}" data-ui-title="m_system_tooltip">
+            <span data-ui-copy="m_system">${devText("Hệ thống")}</span>
           </span>
         </td>
       `;
@@ -1178,7 +1186,7 @@ function renderSkillsTable() {
         <td>${getAgentBadge("codex")}</td>
         <td>${getAgentBadge("claude")}</td>
         <td style="text-align: right;">
-          <button class="table-action-btn btn-danger-hover btn-delete-skill" title="Xóa triệt để" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;" data-ui-title="m_ddcbe18380c3">
+          <button class="table-action-btn btn-danger-hover btn-delete-skill" title="${escapeHtml(devText("Xóa triệt để"))}" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;" data-ui-title="m_ddcbe18380c3">
             ${SVG_ICONS.trash} <span><span data-ui-copy="m_57435a5c8444">Xóa</span></span>
           </button>
         </td>
@@ -1470,11 +1478,11 @@ function renderSettingsTabContent(tabKey) {
       <div class="form-group">
         <label class="form-label settings-section-title"><span data-ui-copy="m_97f61b5709bd">Quản lý Kỹ năng đã Xóa (Tombstone Manifest):</span></label>
         <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 6px; max-height: 120px; overflow-y: auto;">
-          ${(cfg.skills_sync.deleted_skills || []).length === 0 ? '<div style="font-size: 11px; color: var(--text-muted); padding: 4px;">Chưa có kỹ năng nào bị khai tử</div>' : ''}
+          ${(cfg.skills_sync.deleted_skills || []).length === 0 ? `<div style="font-size: 11px; color: var(--text-muted); padding: 4px;"><span data-ui-copy="m_no_tombstones">${devText("Chưa có kỹ năng nào bị khai tử")}</span></div>` : ''}
           ${(cfg.skills_sync.deleted_skills || []).map(item => `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-size: 11px;">
               <span style="font-family: var(--font-mono); color: var(--color-danger);">${escapeHtml(item.name)}</span>
-              <button class="btn-secondary btn-restore-tombstone" data-skill="${escapeHtml(item.name)}" style="font-size: 10px; padding: 2px 6px;">Khôi phục</button>
+              <button class="btn-secondary btn-restore-tombstone" data-skill="${escapeHtml(item.name)}" style="font-size: 10px; padding: 2px 6px;"><span data-ui-copy="m_restore_btn">${devText("Khôi phục")}</span></button>
             </div>
           `).join("")}
         </div>
