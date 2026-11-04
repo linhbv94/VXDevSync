@@ -6,6 +6,7 @@ Tạo môi trường giả lập (Mock Environment) toàn diện để kiểm th
 """
 
 import os
+import time
 import shutil
 import subprocess
 import shlex
@@ -200,7 +201,10 @@ def setup_mock_environment():
 
     claude_dir = agents_root / "claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
-    (claude_dir / "CLAUDE.md").write_text("# Claude Code Old Rules\nOld content\n", encoding="utf-8")
+    claude_file = claude_dir / "CLAUDE.md"
+    claude_file.write_text("# Claude Code Old Rules\nOld content\n", encoding="utf-8")
+    t_old = time.time() - 3600
+    os.utime(claude_file, (t_old, t_old))
 
     print("[Setup] Môi trường giả lập đã sẵn sàng tại:")
     print(f"   - Workspace: {workspace_dir}")

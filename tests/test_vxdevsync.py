@@ -113,6 +113,71 @@ class TestVXDevSync(unittest.TestCase):
         self.assertTrue((claude_dir / "CLAUDE.md").exists())
         self.assertIn("Rule 1: No LaTeX", (claude_dir / "CLAUDE.md").read_text(encoding="utf-8"))
 
+    def test_rules_adapter_sync_upstream_when_agent_newer(self):
+        import time
+        import os
+        lib_dir = self.test_path / "central_lib_rules_up"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        codex_dir = self.test_path / "agents" / "codex"
+        codex_dir.mkdir(parents=True, exist_ok=True)
+        claude_dir = self.test_path / "agents" / "claude_sync"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+
+        adapter = AdapterEngine()
+        # 1. Khởi tạo bản cũ trong Thư viện
+        old_content = "# AGENTS.md\nOld Global Rules"
+        lib_file = lib_dir / "AGENTS.md"
+        lib_file.write_text(old_content, encoding="utf-8")
+        t_old = time.time() - 100
+        os.utime(lib_file, (t_old, t_old))
+
+        # 2. Tạo bản mới trong Codex Agent
+        new_content = "# AGENTS.md\nNew Global Rules - User Edited"
+        agent_file = codex_dir / "AGENTS.md"
+        agent_file.write_text(new_content, encoding="utf-8")
+        t_new = time.time()
+        os.utime(agent_file, (t_new, t_new))
+
+        agent_paths = {"codex": str(codex_dir), "claude": str(claude_dir)}
+        # 3. Chạy Upstream: Thư viện phải gom bản mới từ Codex
+        changed, msg = adapter.sync_rules_upstream(lib_dir, agent_paths, ["codex", "claude"])
+        self.assertTrue(changed)
+        self.assertIn("codex", msg)
+        self.assertEqual(lib_file.read_text(encoding="utf-8"), new_content)
+
+        # 4. Chạy Downstream: Claude phải nhận được bản mới này
+        deployed = adapter.deploy_rules_downstream(lib_dir, agent_paths, ["codex", "claude"])
+        self.assertTrue(any("claude" in item for item in deployed))
+        claude_file = claude_dir / "CLAUDE.md"
+        self.assertTrue(claude_file.exists())
+        self.assertIn(new_content, claude_file.read_text(encoding="utf-8"))
+
+    def test_rules_adapter_sync_upstream_from_claude_strips_header(self):
+        import time
+        import os
+        from src.adapter_engine import CLAUDE_HEADER_METADATA
+        lib_dir = self.test_path / "central_lib_claude_up"
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        claude_dir = self.test_path / "agents" / "claude_source"
+        claude_dir.mkdir(parents=True, exist_ok=True)
+
+        adapter = AdapterEngine()
+        lib_file = lib_dir / "AGENTS.md"
+        lib_file.write_text("Old Rules", encoding="utf-8")
+        t_old = time.time() - 50
+        os.utime(lib_file, (t_old, t_old))
+
+        # Claude file kèm header tự sinh
+        claude_raw = CLAUDE_HEADER_METADATA + "Updated Rules From Claude User"
+        claude_file = claude_dir / "CLAUDE.md"
+        claude_file.write_text(claude_raw, encoding="utf-8")
+        t_new = time.time()
+        os.utime(claude_file, (t_new, t_new))
+
+        changed, msg = adapter.sync_rules_upstream(lib_dir, {"claude": str(claude_dir)}, ["claude"])
+        self.assertTrue(changed)
+        self.assertEqual(lib_file.read_text(encoding="utf-8").strip(), "Updated Rules From Claude User")
+
     def test_git_scan_and_status(self):
         # Tạo mock repo Git
         repo_dir = self.test_path / "mock_repo"

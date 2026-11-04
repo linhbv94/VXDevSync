@@ -460,7 +460,13 @@ class BridgeApi:
             self._set_sync_progress("skills", 5, 5, "Đồng bộ Kỹ năng & Rules (5/5)...", "Đồng bộ Thư viện Kỹ năng lên GitHub...", active=True)
             _, git_pushed, git_msg = self._commit_library_changes(lib_path, "chore(skills): sync skills and rules")
 
-            self._set_sync_progress("skills", 5, 5, "Hoàn tất Đồng bộ Kỹ năng & Rules", f"Đã gom {len(upstream_files)} skills mới, phân bổ sang {len(downstream_agents)} agents.", active=False)
+            progress_detail = f"Đã gom {len(upstream_files)} skills mới, phân bổ sang {len(downstream_agents)} agents."
+            if rules_up_changed and rules_up_msg:
+                progress_detail += f" {rules_up_msg}"
+            elif rules_deployed:
+                progress_detail += f" Đã triển khai rules ({', '.join(rules_deployed)})."
+
+            self._set_sync_progress("skills", 5, 5, "Hoàn tất Đồng bộ Kỹ năng & Rules", progress_detail, active=False)
 
             return {
                 "success": True,
@@ -468,6 +474,7 @@ class BridgeApi:
                 "upstream_files": upstream_files,
                 "downstream_agents": downstream_agents,
                 "rules_up_changed": rules_up_changed,
+                "rules_up_msg": rules_up_msg,
                 "rules_deployed": rules_deployed,
                 "purged_tombstones": purged,
                 "git_pushed": git_pushed,

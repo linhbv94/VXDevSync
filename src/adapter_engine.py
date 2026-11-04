@@ -44,34 +44,66 @@ class AdapterEngine:
         bản trong Central Library (AGENTS.md), tự động gom về Library.
         """
         lib_root_file = library_path / "AGENTS.md"
-        
-        # Nếu Central Library đã có AGENTS.md, Central Library là Single Source of Truth
-        if lib_root_file.exists() and lib_root_file.stat().st_size > 0:
-            return False, "Central Library AGENTS.md là Single Source of Truth."
+        lib_exists = lib_root_file.exists() and lib_root_file.stat().st_size > 0
+        lib_mtime = lib_root_file.stat().st_mtime if lib_exists else 0.0
+        lib_hash = self.get_file_hash(lib_root_file) if lib_exists else ""
+        lib_text = ""
+        if lib_exists:
+            try:
+                lib_text = safe_sync_io.read_text(lib_root_file.parent, lib_root_file.name).replace("\r\n", "\n").strip()
+            except Exception:
+                pass
 
-        # Nếu Central Library chưa có AGENTS.md, nạp từ Agent có rules hợp lệ
+        newer_agent_rules: Optional[Tuple[Path, str, str, float]] = None
+
         for agent_name in selected_agents:
             agent_dir_str = agent_paths.get(agent_name, "")
             rules_files = self.get_agent_rules_files(agent_name, agent_dir_str)
 
             for rf in rules_files:
-                if rf.exists() and rf.stat().st_size > 0:
-                    try:
-                        content = safe_sync_io.read_text(rf.parent, rf.name)
+                if not rf.exists() or rf.stat().st_size == 0:
+                    continue
 
-                        if rf.name == "CLAUDE.md" and CLAUDE_HEADER_METADATA.strip() in content:
-                            content = content.replace(CLAUDE_HEADER_METADATA, "").strip()
+                rf_mtime = rf.stat().st_mtime
+                if lib_exists and rf_mtime <= lib_mtime:
+                    continue
 
-                        safe_sync_io.ensure_directory(library_path)
-                        safe_sync_io.write_text(lib_root_file.parent, lib_root_file.name, content)
+                try:
+                    content = safe_sync_io.read_text(rf.parent, rf.name)
+                    if rf.name == "CLAUDE.md" and CLAUDE_HEADER_METADATA.strip() in content:
+                        clean_content = content.replace(CLAUDE_HEADER_METADATA, "").strip()
+                    else:
+                        clean_content = content
 
-                        return True, f"Khởi tạo AGENTS.md cho Central Library từ {agent_name} ({rf.name})."
-                    except ValueError:
-                        raise
-                    except Exception as e:
-                        return False, f"Lỗi đọc rules từ {agent_name}: {e}"
+                    norm_clean = clean_content.replace("\r\n", "\n").strip()
+                    if lib_exists and norm_clean == lib_text:
+                        continue
 
-        return False, "Chưa tìm thấy rules nào để khởi tạo."
+                    if lib_exists and rf.name != "CLAUDE.md":
+                        rf_hash = self.get_file_hash(rf)
+                        if rf_hash and rf_hash == lib_hash:
+                            continue
+
+                    if newer_agent_rules is None or rf_mtime > newer_agent_rules[3]:
+                        newer_agent_rules = (rf, agent_name, clean_content, rf_mtime)
+                except ValueError:
+                    raise
+                except Exception:
+                    continue
+
+        if newer_agent_rules:
+            rf, agent_name, content, agent_mtime = newer_agent_rules
+            try:
+                safe_sync_io.ensure_directory(library_path)
+                safe_sync_io.write_text(lib_root_file.parent, lib_root_file.name, content, mtime=agent_mtime)
+                action_desc = "Khởi tạo" if not lib_exists else "Gom cập nhật"
+                return True, f"{action_desc} AGENTS.md từ {agent_name} ({rf.name}) về Thư viện trung tâm."
+            except ValueError:
+                raise
+            except Exception as e:
+                return False, f"Lỗi ghi rules vào Thư viện từ {agent_name}: {e}"
+
+        return False, ""
 
     def deploy_rules_downstream(
         self,
@@ -89,6 +121,7 @@ class AdapterEngine:
 
         try:
             base_content = safe_sync_io.read_text(lib_root_file.parent, lib_root_file.name)
+            lib_mtime = lib_root_file.stat().st_mtime
         except ValueError:
             raise
         except Exception:
@@ -109,7 +142,7 @@ class AdapterEngine:
                 target_file = agent_dir.parent / "AGENTS.md" if agent_dir.name == "skills" else agent_dir / "AGENTS.md"
                 target_hash = self.get_file_hash(target_file)
                 if self.get_file_hash(lib_root_file) != target_hash:
-                    safe_sync_io.write_text(target_file.parent, target_file.name, base_content)
+                    safe_sync_io.write_text(target_file.parent, target_file.name, base_content, mtime=lib_mtime)
                     deployed.append(f"{agent_name} (AGENTS.md)")
 
             elif agent_name == "claude":
@@ -124,7 +157,7 @@ class AdapterEngine:
                     except Exception:
                         pass
                 if current_text != claude_content:
-                    safe_sync_io.write_text(target_file.parent, target_file.name, claude_content)
+                    safe_sync_io.write_text(target_file.parent, target_file.name, claude_content, mtime=lib_mtime)
                     deployed.append("claude (CLAUDE.md)")
 
         return deployed
