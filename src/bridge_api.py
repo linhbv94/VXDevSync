@@ -43,6 +43,34 @@ class BridgeApi:
         self._git_engine = GitEngine()
         self._skills_engine = SkillsEngine()
         self._adapter_engine = AdapterEngine()
+        self._progress_lock = threading.Lock()
+        self._sync_progress = {
+            "active": False,
+            "type": "none",
+            "current": 0,
+            "total": 0,
+            "percent": 0,
+            "title": "",
+            "detail": ""
+        }
+
+    def get_sync_progress(self) -> Dict[str, Any]:
+        """Lấy tiến độ đồng bộ thời gian thực cho Git Sync và Skills Sync."""
+        with self._progress_lock:
+            return dict(self._sync_progress)
+
+    def _set_sync_progress(self, p_type: str, current: int, total: int, title: str, detail: str, active: bool = True):
+        percent = int((current / total) * 100) if total > 0 else 0
+        with self._progress_lock:
+            self._sync_progress = {
+                "active": active,
+                "type": p_type,
+                "current": current,
+                "total": total,
+                "percent": percent,
+                "title": title,
+                "detail": detail
+            }
 
     def _set_window_maximized(self, value):
         self._window_maximized = bool(value)
@@ -193,34 +221,47 @@ class BridgeApi:
         success_count = 0
         cfg = self._config_manager.load_config()
         ignore_list = set(cfg.git_sync.ignore_list or [])
+        total = len(repo_paths)
 
-        for p_str in repo_paths:
-            p = Path(p_str)
-            if p.name in ignore_list or any(part in ignore_list for part in p.parts):
-                results.append({
-                    "path": str(p),
-                    "name": p.name,
-                    "action": action,
-                    "success": False,
-                    "message": "Bỏ qua an toàn: Repository đã nằm trong danh sách loại trừ (Ignored)",
-                    "cmd": "",
-                    "raw_error": "Repo is in ignore_list"
-                })
-                continue
+        action_label = "Smart Sync" if action == "smart_sync" else action.upper()
+        self._set_sync_progress("git", 0, total, f"Đang {action_label} (0/{total})...", "Khởi động tiến trình đồng bộ...", active=True)
 
-            res = self._git_engine.sync_single_repo(p, action=action)
-            if res.get("success"):
-                success_count += 1
-            results.append(res)
+        try:
+            for idx, p_str in enumerate(repo_paths):
+                p = Path(p_str)
+                self._set_sync_progress("git", idx, total, f"Đang {action_label} ({idx}/{total})...", f"Đang xử lý: {p.name}", active=True)
 
-        failed_count = len(repo_paths) - success_count
-        return {
-            "success": True,
-            "total": len(repo_paths),
-            "success_count": success_count,
-            "failed_count": failed_count,
-            "results": results
-        }
+                if p.name in ignore_list or any(part in ignore_list for part in p.parts):
+                    results.append({
+                        "path": str(p),
+                        "name": p.name,
+                        "action": action,
+                        "success": False,
+                        "message": "Bỏ qua an toàn: Repository đã nằm trong danh sách loại trừ (Ignored)",
+                        "cmd": "",
+                        "raw_error": "Repo is in ignore_list"
+                    })
+                    continue
+
+                res = self._git_engine.sync_single_repo(p, action=action)
+                if res.get("success"):
+                    success_count += 1
+                results.append(res)
+                self._set_sync_progress("git", idx + 1, total, f"Đang {action_label} ({idx + 1}/{total})...", f"Xong: {p.name} - {res.get('message', '')}", active=True)
+
+            failed_count = total - success_count
+            self._set_sync_progress("git", total, total, f"Hoàn tất {action_label}", f"Thành công {success_count}/{total} repos", active=False)
+
+            return {
+                "success": True,
+                "total": total,
+                "success_count": success_count,
+                "failed_count": failed_count,
+                "results": results
+            }
+        except Exception as e:
+            self._set_sync_progress("git", 0, total, f"Lỗi {action_label}", str(e), active=False)
+            raise
 
     def toggle_git_ignore(self, repo_name_or_rel: str, add: bool = True) -> Dict[str, Any]:
         """Thêm hoặc gỡ bỏ một repo khỏi danh sách loại trừ (ignore_list)."""
@@ -374,53 +415,67 @@ class BridgeApi:
         selected_agents = [ag for ag, state in cfg.skills_sync.agents.items() if state == 1]
         all_agents = ["anti", "codex", "claude"]
 
-        self._library_preflight(lib_path)
+        self._set_sync_progress("skills", 0, 5, "Đồng bộ Kỹ năng & Rules (0/5)...", "Khởi tạo tiến trình...", active=True)
 
-        # 1. Dọn dẹp Tombstone từ file .vxdevsync/tombstones.json kéo từ remote
-        purged = self._skills_engine.sync_tombstones_from_git_repo(lib_path, agent_paths, all_agents)
+        try:
+            self._library_preflight(lib_path)
 
-        # 2. Upstream Skills
-        upstream_files = self._skills_engine.scan_and_sync_upstream(
-            library_path=lib_path,
-            agent_paths=agent_paths,
-            selected_agents=selected_agents,
-            ignore_patterns=cfg.skills_sync.ignore_patterns,
-            deleted_skills=cfg.skills_sync.deleted_skills
-        )
+            # 1. Dọn dẹp Tombstone từ file .vxdevsync/tombstones.json kéo từ remote
+            self._set_sync_progress("skills", 1, 5, "Đồng bộ Kỹ năng & Rules (1/5)...", "Dọn dẹp Tombstones đã xóa trên Git và Local...", active=True)
+            purged = self._skills_engine.sync_tombstones_from_git_repo(lib_path, agent_paths, all_agents)
 
-        # 3. Downstream Skills
-        downstream_agents = self._skills_engine.deploy_skills_downstream(
-            library_path=lib_path,
-            agent_paths=agent_paths,
-            selected_agents=selected_agents,
-            ignore_patterns=cfg.skills_sync.ignore_patterns
-        )
+            # 2. Upstream Skills
+            self._set_sync_progress("skills", 2, 5, "Đồng bộ Kỹ năng & Rules (2/5)...", "Quét Kỹ năng mới từ các AI Agents về Thư viện...", active=True)
+            upstream_files = self._skills_engine.scan_and_sync_upstream(
+                library_path=lib_path,
+                agent_paths=agent_paths,
+                selected_agents=selected_agents,
+                ignore_patterns=cfg.skills_sync.ignore_patterns,
+                deleted_skills=cfg.skills_sync.deleted_skills
+            )
 
-        # 4. Rules Adapter (Upstream + Downstream)
-        rules_up_changed, rules_up_msg = self._adapter_engine.sync_rules_upstream(
-            library_path=lib_path,
-            agent_paths=agent_paths,
-            selected_agents=selected_agents
-        )
-        rules_deployed = self._adapter_engine.deploy_rules_downstream(
-            library_path=lib_path,
-            agent_paths=agent_paths,
-            selected_agents=selected_agents
-        )
+            # 3. Downstream Skills
+            self._set_sync_progress("skills", 3, 5, "Đồng bộ Kỹ năng & Rules (3/5)...", "Phân bổ Kỹ năng sang các AI Agents đang kích hoạt...", active=True)
+            downstream_agents = self._skills_engine.deploy_skills_downstream(
+                library_path=lib_path,
+                agent_paths=agent_paths,
+                selected_agents=selected_agents,
+                ignore_patterns=cfg.skills_sync.ignore_patterns
+            )
 
-        _, git_pushed, git_msg = self._commit_library_changes(lib_path, "chore(skills): sync skills and rules")
+            # 4. Rules Adapter (Upstream + Downstream)
+            self._set_sync_progress("skills", 4, 5, "Đồng bộ Kỹ năng & Rules (4/5)...", "Chuẩn hóa bộ quy tắc AGENTS.md sang CLAUDE.md...", active=True)
+            rules_up_changed, rules_up_msg = self._adapter_engine.sync_rules_upstream(
+                library_path=lib_path,
+                agent_paths=agent_paths,
+                selected_agents=selected_agents
+            )
+            rules_deployed = self._adapter_engine.deploy_rules_downstream(
+                library_path=lib_path,
+                agent_paths=agent_paths,
+                selected_agents=selected_agents
+            )
 
-        return {
-            "success": True,
-            "upstream_count": len(upstream_files),
-            "upstream_files": upstream_files,
-            "downstream_agents": downstream_agents,
-            "rules_up_changed": rules_up_changed,
-            "rules_deployed": rules_deployed,
-            "purged_tombstones": purged,
-            "git_pushed": git_pushed,
-            "git_msg": git_msg
-        }
+            # 5. Git Commit & Push
+            self._set_sync_progress("skills", 5, 5, "Đồng bộ Kỹ năng & Rules (5/5)...", "Đồng bộ Thư viện Kỹ năng lên GitHub...", active=True)
+            _, git_pushed, git_msg = self._commit_library_changes(lib_path, "chore(skills): sync skills and rules")
+
+            self._set_sync_progress("skills", 5, 5, "Hoàn tất Đồng bộ Kỹ năng & Rules", f"Đã gom {len(upstream_files)} skills mới, phân bổ sang {len(downstream_agents)} agents.", active=False)
+
+            return {
+                "success": True,
+                "upstream_count": len(upstream_files),
+                "upstream_files": upstream_files,
+                "downstream_agents": downstream_agents,
+                "rules_up_changed": rules_up_changed,
+                "rules_deployed": rules_deployed,
+                "purged_tombstones": purged,
+                "git_pushed": git_pushed,
+                "git_msg": git_msg
+            }
+        except Exception as e:
+            self._set_sync_progress("skills", 0, 5, "Lỗi Đồng bộ Kỹ năng & Rules", str(e), active=False)
+            raise
 
     @exclusive_mutation
     def delete_skills_cascade(self, skill_names: List[str]) -> Dict[str, Any]:

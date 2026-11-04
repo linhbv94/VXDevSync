@@ -755,13 +755,99 @@ async function excludeRepo(repoName) {
   toggleExcludeRepo(repoName, true);
 }
 
+// --- PROGRESS BAR CONTROLLER ---
+let syncProgressInterval = null;
+
+function renderGitProgress(current, total, percent, title, detail, isCompleted = false, isError = false) {
+  const banner = document.getElementById("git-sync-progress");
+  if (!banner) return;
+
+  const titleEl = document.getElementById("git-progress-title");
+  const counterEl = document.getElementById("git-progress-counter");
+  const fillEl = document.getElementById("git-progress-fill");
+  const detailEl = document.getElementById("git-progress-detail");
+
+  banner.style.display = "block";
+  banner.classList.toggle("is-completed", isCompleted);
+  banner.classList.toggle("is-error", isError);
+
+  if (titleEl && title) titleEl.textContent = title;
+  if (counterEl) counterEl.textContent = (current) + "/" + (total) + " (" + (percent) + "%)";
+  if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, percent)) + "%";
+  if (detailEl && detail) detailEl.textContent = detail;
+  banner.setAttribute("aria-valuenow", String(percent));
+}
+
+function hideGitProgress(delay = 1200) {
+  setTimeout(() => {
+    const banner = document.getElementById("git-sync-progress");
+    if (banner && !state.isSyncingGit) {
+      banner.style.display = "none";
+      banner.classList.remove("is-completed", "is-error");
+    }
+  }, delay);
+}
+
+function renderSkillsProgress(current, total, percent, title, detail, isCompleted = false, isError = false) {
+  const banner = document.getElementById("skills-sync-progress");
+  if (!banner) return;
+
+  const titleEl = document.getElementById("skills-progress-title");
+  const counterEl = document.getElementById("skills-progress-counter");
+  const fillEl = document.getElementById("skills-progress-fill");
+  const detailEl = document.getElementById("skills-progress-detail");
+
+  banner.style.display = "block";
+  banner.classList.toggle("is-completed", isCompleted);
+  banner.classList.toggle("is-error", isError);
+
+  if (titleEl && title) titleEl.textContent = title;
+  if (counterEl) counterEl.textContent = (percent) + "%";
+  if (fillEl) fillEl.style.width = Math.min(100, Math.max(0, percent)) + "%";
+  if (detailEl && detail) detailEl.textContent = detail;
+  banner.setAttribute("aria-valuenow", String(percent));
+}
+
+function hideSkillsProgress(delay = 1500) {
+  setTimeout(() => {
+    const banner = document.getElementById("skills-sync-progress");
+    if (banner && !state.isSyncingSkills) {
+      banner.style.display = "none";
+      banner.classList.remove("is-completed", "is-error");
+    }
+  }, delay);
+}
+
 async function executeGitAction(action, paths) {
   if (state.isSyncingGit || paths.length === 0) return;
   state.isSyncingGit = true;
-  showToast((devText("Đang thực hiện ") + (action.toUpperCase()) + devText(" cho ") + (paths.length) + devText(" repos...")), "info");
+  const actionLabel = action === "smart_sync" ? "Smart Sync" : action.toUpperCase();
+
+  renderGitProgress(0, paths.length, 0, (devText("Đang ") + (actionLabel) + devText("...")), (devText("Chuẩn bị đồng bộ ") + (paths.length) + devText(" repos...")));
+  showToast((devText("Đang thực hiện ") + (actionLabel) + devText(" cho ") + (paths.length) + devText(" repos...")), "info");
+
+  // Polling tiến trình thời gian thực từ Python backend
+  if (syncProgressInterval) clearInterval(syncProgressInterval);
+  syncProgressInterval = setInterval(async () => {
+    if (!state.isSyncingGit) {
+      clearInterval(syncProgressInterval);
+      syncProgressInterval = null;
+      return;
+    }
+    try {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_sync_progress) {
+        const prog = await window.pywebview.api.get_sync_progress();
+        if (prog && prog.active && prog.type === "git") {
+          renderGitProgress(prog.current, prog.total, prog.percent, prog.title, prog.detail);
+        }
+      }
+    } catch (_) {}
+  }, 120);
 
   try {
     const res = await window.pywebview.api.sync_git_repos(paths, action);
+    if (syncProgressInterval) { clearInterval(syncProgressInterval); syncProgressInterval = null; }
+
     if (res.success) {
       // Lưu lại kết quả sync của từng repo vào state
       if (res.results) {
@@ -773,21 +859,30 @@ async function executeGitAction(action, paths) {
       const failedCount = res.failed_count !== undefined ? res.failed_count : (res.total - res.success_count);
 
       if (failedCount > 0) {
+        const pct = Math.round((res.success_count / res.total) * 100);
+        renderGitProgress(res.success_count, res.total, pct, devText("Đồng bộ hoàn tất một phần"), (res.success_count) + "/" + (res.total) + devText(" thành công, ") + (failedCount) + devText(" gặp sự cố"), true, true);
         showToast((devText("Đồng bộ: ") + (res.success_count) + devText("/") + (res.total) + devText(" thành công, ") + (failedCount) + devText(" repo gặp sự cố")), "warning", 5000);
         openSyncErrorsModal(res);
       } else {
+        renderGitProgress(res.total, res.total, 100, (devText("Hoàn tất ") + (actionLabel) + "!"), (devText("Đã đồng bộ thành công cả ") + (res.total) + devText(" repos")), true, false);
         if (res.total === 1 && res.results && res.results[0] && res.results[0].message) {
           showToast(res.results[0].message, "success");
         } else {
-          showToast((devText("Hoàn tất: Đã ") + (action.toUpperCase()) + devText(" thành công cả ") + (res.total) + devText(" repos")), "success");
+          showToast((devText("Hoàn tất: Đã ") + (actionLabel) + devText(" thành công cả ") + (res.total) + devText(" repos")), "success");
         }
       }
+      hideGitProgress(1500);
       triggerGitScan();
     } else {
+      renderGitProgress(0, paths.length, 0, devText("Lỗi đồng bộ"), res.error || devText("Lỗi thực thi Git action"), false, true);
+      hideGitProgress(2500);
       showToast(res.error || devText("Lỗi thực thi Git action"), "danger");
     }
   } catch (err) {
+    if (syncProgressInterval) { clearInterval(syncProgressInterval); syncProgressInterval = null; }
     console.error(err);
+    renderGitProgress(0, paths.length, 0, devText("Lỗi đồng bộ"), devText("Lỗi thực thi Git action"), false, true);
+    hideGitProgress(2500);
     showToast(devText("Lỗi thực thi Git action"), "danger");
   } finally {
     state.isSyncingGit = false;
@@ -1053,22 +1148,50 @@ async function executeSkillsUnifiedSync() {
   state.isSyncingSkills = true;
 
   const hintElem = document.getElementById("skills-sync-hint");
-  hintElem.textContent = devText("Đang đồng bộ Kỹ năng và Quy tắc AGENTS.md / CLAUDE.md...");
+  if (hintElem) hintElem.textContent = devText("Đang đồng bộ Kỹ năng và Quy tắc AGENTS.md / CLAUDE.md...");
   showToast(devText("Bắt đầu Đồng bộ Hợp nhất Kỹ năng & Rules..."), "info");
+  renderSkillsProgress(0, 5, 0, devText("Đồng bộ Kỹ năng & Rules..."), devText("Khởi tạo tiến trình..."));
+
+  let skillsInterval = setInterval(async () => {
+    if (!state.isSyncingSkills) {
+      clearInterval(skillsInterval);
+      skillsInterval = null;
+      return;
+    }
+    try {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_sync_progress) {
+        const prog = await window.pywebview.api.get_sync_progress();
+        if (prog && prog.active && prog.type === "skills") {
+          renderSkillsProgress(prog.current, prog.total, prog.percent, prog.title, prog.detail);
+        }
+      }
+    } catch (_) {}
+  }, 120);
 
   try {
     const res = await window.pywebview.api.sync_skills_unified();
+    if (skillsInterval) { clearInterval(skillsInterval); skillsInterval = null; }
+
     if (res.success) {
-      hintElem.textContent = (devText("Đã gom ") + (res.upstream_count) + devText(" skills mới, phân bổ sang ") + (res.downstream_agents.length) + devText(" agents. ") + (res.git_msg || "") + devText(""));
+      const summaryMsg = (devText("Đã gom ") + (res.upstream_count) + devText(" skills mới, phân bổ sang ") + (res.downstream_agents.length) + devText(" agents. ") + (res.git_msg || "") + devText(""));
+      if (hintElem) hintElem.textContent = summaryMsg;
+      renderSkillsProgress(5, 5, 100, devText("Đồng bộ Kỹ năng & Rules hoàn tất!"), summaryMsg, true, false);
       showToast(devText("Đồng bộ Kỹ năng & Rules hoàn tất thành công!"), "success");
+      hideSkillsProgress(2000);
       triggerSkillsScan();
     } else {
-      hintElem.textContent = (devText("Lỗi: ") + (res.error) + devText(""));
+      if (hintElem) hintElem.textContent = (devText("Lỗi: ") + (res.error) + devText(""));
+      renderSkillsProgress(0, 5, 0, devText("Lỗi Đồng bộ Kỹ năng"), res.error, false, true);
+      hideSkillsProgress(3000);
       showToast(res.error, "danger");
     }
   } catch (err) {
+    if (skillsInterval) { clearInterval(skillsInterval); skillsInterval = null; }
     console.error(err);
-    hintElem.textContent = devText("Lỗi thực thi đồng bộ kỹ năng");
+    if (hintElem) hintElem.textContent = devText("Lỗi thực thi đồng bộ kỹ năng");
+    renderSkillsProgress(0, 5, 0, devText("Lỗi Đồng bộ Kỹ năng"), devText("Lỗi thực thi đồng bộ kỹ năng"), false, true);
+    hideSkillsProgress(3000);
+    showToast(devText("Lỗi thực thi đồng bộ kỹ năng"), "danger");
   } finally {
     state.isSyncingSkills = false;
   }

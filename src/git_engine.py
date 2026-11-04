@@ -299,9 +299,9 @@ class GitEngine:
 
         auto_committed = False
         if dirty:
-            if action in ("pull", "smart_sync"):
+            if action == "pull":
                 return result(False, "Bỏ qua an toàn: Repo có file chưa commit (Dirty)", cmd="git status --porcelain", raw_error=f"Dirty files:\n{dirty.strip()}")
-            elif action == "push":
+            elif action in ("push", "smart_sync"):
                 # Kiểm tra xem có unmerged conflicts hoặc operation merge/rebase/cherry-pick dở dang không
                 code_unmerged, unmerged_out, _ = self.run_cmd(["diff", "--name-only", "--diff-filter=U"], repo_path, timeout)
                 if code_unmerged == 0 and unmerged_out.strip():
@@ -315,11 +315,11 @@ class GitEngine:
                     if (gdir / "MERGE_HEAD").exists() or (gdir / "rebase-apply").exists() or (gdir / "rebase-merge").exists() or (gdir / "CHERRY_PICK_HEAD").exists() or (gdir / "REVERT_HEAD").exists():
                         return result(False, "Không thể tự động commit: Repo đang trong tiến trình merge/rebase/cherry-pick dở dang", cmd="git status", raw_error="Ongoing git operation detected")
 
-                # Tự động commit các file thay đổi (dirty) trước khi push theo yêu cầu UX
+                # Tự động commit các file thay đổi (dirty) trước khi push/smart_sync theo yêu cầu UX
                 code, out, err = self.run_cmd(["add", "-A"], repo_path, timeout)
                 if code != 0:
                     return result(False, "Không thể stage thay đổi để commit: " + err, cmd="git add -A", raw_error=err)
-                commit_msg = "chore: auto-commit changes before push"
+                commit_msg = f"chore: auto-commit changes before {action}"
                 code, out, err = self.run_cmd(["commit", "-m", commit_msg], repo_path, timeout)
                 if code != 0:
                     raw_err = (err or out).strip()
@@ -347,7 +347,8 @@ class GitEngine:
             if ahead and behind:
                 return result(False, "Cần merge thủ công (Diverged)", cmd=f"git fetch {remote} {branch}", raw_error=f"Ahead: {ahead}, Behind: {behind}")
             if not ahead and not behind:
-                return result(True, "Đã đồng bộ", "none", cmd=f"git fetch {remote} {branch}")
+                msg = "Đã commit và đồng bộ" if auto_committed else "Đã đồng bộ"
+                return result(True, msg, "none", cmd=f"git fetch {remote} {branch}")
             action = "push" if ahead else "pull"
 
         args = ["pull", "--ff-only", remote, branch] if action == "pull" else ["push", remote, f"HEAD:refs/heads/{branch}"]
@@ -356,7 +357,10 @@ class GitEngine:
         raw_output = ((err or "") + ("\n" + out if out else "")).strip()
 
         if code == 0:
-            msg = "Đã commit và push thành công" if auto_committed else f"Đã {action} thành công"
+            if auto_committed:
+                msg = "Đã commit và push thành công" if action == "push" else "Đã commit và đồng bộ thành công"
+            else:
+                msg = f"Đã {action} thành công"
             return result(True, msg, action, cmd=cmd_str, raw_error=raw_output)
         else:
             err_lower = raw_output.lower()

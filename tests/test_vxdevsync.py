@@ -35,6 +35,14 @@ class TestVXDevSync(unittest.TestCase):
         self.assertEqual(state["general"]["lang"], "vi")
         self.assertEqual(state["general"]["default_tab"], "git_sync")
 
+    def test_get_sync_progress_state(self):
+        progress = self.api.get_sync_progress()
+        self.assertIn("active", progress)
+        self.assertIn("percent", progress)
+        self.assertIn("current", progress)
+        self.assertIn("total", progress)
+        self.assertFalse(progress["active"])
+
     def test_recent_paths_and_ignore(self):
         p1 = str((self.test_path / "workspace1").resolve())
         p2 = str((self.test_path / "workspace2").resolve())
@@ -310,6 +318,52 @@ class TestVXDevSync(unittest.TestCase):
         self.assertIn("chore: auto-commit changes before push", log_out)
 
         # Kiểm tra bare remote đã nhận commit mới nhất
+        code, local_rev, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=local_repo)
+        code, remote_rev, _ = self.api._git_engine.run_cmd(["rev-parse", "refs/heads/main"], cwd=bare_remote)
+        self.assertEqual(local_rev.strip(), remote_rev.strip())
+
+    def test_smart_sync_dirty_repo_auto_commits_and_pushes(self):
+        bare_remote = self.test_path / "smartsync_dirty_remote.git"
+        code, _, _ = self.api._git_engine.run_cmd(["init", "--bare", str(bare_remote)], cwd=self.test_path)
+        self.assertEqual(code, 0)
+
+        local_repo = self.test_path / "smartsync_dirty_local"
+        local_repo.mkdir(parents=True, exist_ok=True)
+        code, _, _ = self.api._git_engine.run_cmd(["init", "-b", "main"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.name", "Tester"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["config", "user.email", "test@example.com"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        (local_repo / "initial.txt").write_text("v1", encoding="utf-8")
+        code, _, _ = self.api._git_engine.run_cmd(["add", "."], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["commit", "-m", "init"], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["remote", "add", "origin", str(bare_remote)], cwd=local_repo)
+        self.assertEqual(code, 0)
+        code, _, _ = self.api._git_engine.run_cmd(["push", "-u", "origin", "main"], cwd=local_repo)
+        self.assertEqual(code, 0)
+
+        # Tạo file sửa đổi và untracked file (dirty worktree)
+        (local_repo / "initial.txt").write_text("v2 smart sync modification", encoding="utf-8")
+        (local_repo / "new_feature.txt").write_text("smart sync untracked content", encoding="utf-8")
+
+        # Thực thi smart_sync trên dirty repo: engine phải tự động commit và push thành công
+        res = self.api._git_engine.sync_single_repo(local_repo, action="smart_sync")
+        self.assertTrue(res["success"], f"Smart sync dirty repo thất bại: {res.get('message')}")
+        self.assertIn("Đã commit và push thành công", res["message"])
+
+        # Kiểm tra trạng thái sau smart_sync: worktree phải clean
+        code, status_after, _ = self.api._git_engine.run_cmd(["status", "--porcelain"], cwd=local_repo)
+        self.assertEqual(status_after.strip(), "")
+
+        # Kiểm tra log commit tự động
+        code, log_out, _ = self.api._git_engine.run_cmd(["log", "-1", "--pretty=%B"], cwd=local_repo)
+        self.assertIn("chore: auto-commit changes before smart_sync", log_out)
+
+        # Kiểm tra bare remote đã nhận commit mới
         code, local_rev, _ = self.api._git_engine.run_cmd(["rev-parse", "HEAD"], cwd=local_repo)
         code, remote_rev, _ = self.api._git_engine.run_cmd(["rev-parse", "refs/heads/main"], cwd=bare_remote)
         self.assertEqual(local_rev.strip(), remote_rev.strip())
