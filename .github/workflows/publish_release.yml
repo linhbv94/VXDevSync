@@ -45,3 +45,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
           LOCAL_QA_PASSED: ${{ inputs.local_qa_passed }}
+
+  sync_web:
+    needs: publish
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sync_web_release.yml
+    with:
+      tag: ${{ inputs.tag }}
+    secrets:
+      release_sync_token: ${{ secrets.SHOWCASE_RELEASE_SYNC_TOKEN }}

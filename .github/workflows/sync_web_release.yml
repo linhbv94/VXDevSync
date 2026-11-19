@@ -1,0 +1,79 @@
+name: Sync public release to LinhBV
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      use_default_branch_notes:
+        type: boolean
+        default: false
+    secrets:
+      release_sync_token:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing public stable tag, e.g. v1.2.3'
+        required: true
+        type: string
+      use_default_branch_notes:
+        description: 'Read verified notes from the default branch instead of the release tag'
+        type: boolean
+        default: true
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    if: >-
+      ${{ github.event.repository.private == false &&
+        ((github.event_name == 'release' && !github.event.release.prerelease && !github.event.release.draft) ||
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - name: Validate stable tag
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$ ]] || exit 1
+      - name: Checkout reviewed release sync tooling
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'release' && format('refs/heads/{0}', github.event.repository.default_branch) || github.sha }}
+          path: release_tools
+          persist-credentials: false
+      - name: Checkout released changelog
+        if: ${{ !inputs.use_default_branch_notes }}
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'release' && github.sha || format('refs/tags/{0}', inputs.tag) }}
+          path: tagged_release
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Sync version and changelog
+        env:
+          SHOWCASE_RELEASE_APP_ID: vxdevsync
+          SHOWCASE_RELEASE_SYNC_TOKEN: ${{ secrets.release_sync_token || secrets.SHOWCASE_RELEASE_SYNC_TOKEN }}
+          SHOWCASE_RELEASE_GITHUB_TOKEN: ${{ github.token }}
+          NOTES_FROM_DEFAULT_BRANCH: ${{ inputs.use_default_branch_notes }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          source=tagged_release
+          if [[ "$NOTES_FROM_DEFAULT_BRANCH" == "true" ]]; then
+            source=release_tools
+          fi
+          note_path="$source/web/releases/release_${version//./_}.md"
+          if [[ ! -f "$note_path" ]]; then
+            echo "::error::Missing $note_path. Prepare the bilingual notes for the released tag and retry."
+            exit 1
+          fi
+          node release_tools/scripts/sync_web_release.mjs "$note_path" "$RELEASE_TAG"
